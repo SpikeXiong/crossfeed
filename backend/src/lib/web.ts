@@ -5,9 +5,10 @@ import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import type { Hono } from 'hono';
 import { getMimeType } from 'hono/utils/mime';
+import { env } from './env.js';
 
 export function resolveWebRoot(): string | null {
-  const fromEnv = process.env.WEB_ROOT?.trim();
+  const fromEnv = env('webRoot');
   const candidates = [
     fromEnv,
     join(dirname(fileURLToPath(import.meta.url)), '../../frontend/dist'),

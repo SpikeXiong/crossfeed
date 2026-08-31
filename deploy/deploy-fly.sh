@@ -43,16 +43,12 @@ echo -e "Region:   ${YELLOW}$REGION${NC}"
 echo ""
 
 # 询问 secrets
-if [ -z "$MINIMAX_API_KEY" ]; then
-  read -p "MINIMAX_API_KEY (必填): " MINIMAX_API_KEY
-fi
+KEY="${CROSSFEED_LLM_API_KEY:-}"
+BASE="${CROSSFEED_LLM_BASE_URL:-https://api.openai.com/v1}"
+MODEL="${CROSSFEED_LLM_MODEL:-gpt-4o-mini}"
 
-if [ -z "$MINIMAX_BASE_URL" ]; then
-  MINIMAX_BASE_URL="https://api.minimaxi.com/v1"
-fi
-
-if [ -z "$MINIMAX_MODEL" ]; then
-  MINIMAX_MODEL="MiniMax-M3"
+if [ -z "$KEY" ]; then
+  read -p "CROSSFEED_LLM_API_KEY: " KEY
 fi
 
 # 准备 fly.toml（替换 app name）
@@ -69,9 +65,9 @@ fi
 # 设置 secrets
 echo -e "${YELLOW}→ 设置 secrets${NC}"
 fly secrets set \
-  MINIMAX_API_KEY="$MINIMAX_API_KEY" \
-  MINIMAX_BASE_URL="$MINIMAX_BASE_URL" \
-  MINIMAX_MODEL="$MINIMAX_MODEL" \
+  CROSSFEED_LLM_API_KEY="$KEY" \
+  CROSSFEED_LLM_BASE_URL="$BASE" \
+  CROSSFEED_LLM_MODEL="$MODEL" \
   --app "$APP_NAME"
 
 # 部署

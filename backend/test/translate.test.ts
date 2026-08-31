@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const dir = mkdtempSync(join(tmpdir(), 'crossfeed-tr-'));
-process.env.DATA_DIR = dir;
-process.env.DB_PATH = join(dir, 't.db');
+process.env.CROSSFEED_DATA_DIR = dir;
+process.env.CROSSFEED_DB_PATH = join(dir, 't.db');
 
 const { configurePersistence, closeDb } = await import('../src/lib/persistence.js');
 configurePersistence({ dataDir: dir, dbPath: join(dir, 't.db') });

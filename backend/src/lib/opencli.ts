@@ -7,6 +7,7 @@ import { promisify } from 'util';
 import { cached } from './cache.js';
 import { logger, timed } from './logger.js';
 import { configuredOpenCliPath } from './runtimeConfig.js';
+import { envFlag } from './env.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -32,7 +33,7 @@ function withXhsGate<T>(fn: () => Promise<T>): Promise<T> {
  * 解析 opencli 可执行路径。
  *
  * 查找顺序（命中即返回）：
- *   1. 环境变量 OPENCLI_BIN（绝对路径，测试/排错用）
+ *   1. 环境变量 CROSSFEED_OPENCLI_BIN（绝对路径，测试/排错用）
  *   2. $HOME/.opencli/node_modules/@jackwener/opencli/dist/src/main.js  ← 标准 npm 提取位置
  *   3. $HOME/.opencli/node_modules/@jackwener/opencli/dist/cli.js       ← 旧版兼容
  *   4. 'opencli'（fallback：依赖 PATH 里有 bin 链接或 alias）
@@ -50,7 +51,7 @@ export function resetOpenCliBin(): void {
 export function resolveOpenCliBin(): string {
   if (_resolvedBin) return _resolvedBin;
 
-  // 1) 设置页 opencli.path / 环境变量 OPENCLI_BIN
+  // 1) 设置页 opencli.path / 环境变量 CROSSFEED_OPENCLI_BIN
   const fromCfg = configuredOpenCliPath();
   if (fromCfg && existsSync(fromCfg)) {
     _resolvedBin = fromCfg;
@@ -109,9 +110,9 @@ const MUTED_PLATFORMS = new Set([
 
 /**
  * 是否启用静音/后台窗口策略
- * 设 false 可以跳过 --window 注入（debug 用）
+ * CROSSFEED_OPENCLI_MUTED=0 可跳过 --window 注入（debug 用）
  */
-const ENABLE_MUTED_WINDOW = process.env.DISABLE_MUTED_WINDOW !== '1';
+const ENABLE_MUTED_WINDOW = envFlag('opencliMuted', true);
 
 async function fetchOpenCli(
   site: string,

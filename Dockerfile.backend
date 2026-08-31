@@ -34,13 +34,13 @@ COPY --from=builder /app/dist ./dist
 # 持久化数据目录（Fly.io 用 volume 挂到这里）
 RUN mkdir -p /app/data
 VOLUME ["/app/data"]
-ENV DATA_DIR=/app/data
+ENV CROSSFEED_DATA_DIR=/app/data
 
 # 环境
 ENV NODE_ENV=production
-ENV PORT=4000
-ENV HOST=0.0.0.0
-ENV FEED_TTL_SECONDS=18000
+ENV CROSSFEED_PORT=4000
+ENV CROSSFEED_HOST=0.0.0.0
+ENV CROSSFEED_FEED_TTL_SECONDS=18000
 
 EXPOSE 4000
 

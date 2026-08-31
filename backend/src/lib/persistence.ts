@@ -1,6 +1,6 @@
 // 信息流持久化：SQLite 文件库
 // 设计：
-//   - 5h TTL（FEED_TTL_SECONDS 可配）
+//   - 5h TTL（CROSSFEED_FEED_TTL_SECONDS 可配）
 //   - 启动时 + 每 5h 清理过期（server.ts 调度）
 //   - getOrFetch(cacheKey, ttl, loader) 拿/取一体
 //   - 失败兜底：如果 SQLite 写不进去，loader 的结果照样返（不阻断业务）
@@ -10,10 +10,11 @@ import { join } from 'node:path';
 import type { FeedItem } from './normalize.js';
 import { logger } from './logger.js';
 import { parseIntSafe } from './parse.js';
+import { env } from './env.js';
 
-let DATA_DIR = process.env.DATA_DIR || './data';
-let DB_PATH = process.env.DB_PATH || join(DATA_DIR, 'crossfeed.db');
-const DEFAULT_TTL_SEC = parseIntSafe(process.env.FEED_TTL_SECONDS, 18000, 60);
+let DATA_DIR = env('dataDir', './data');
+let DB_PATH = env('dbPath', join(DATA_DIR, 'crossfeed.db'));
+const DEFAULT_TTL_SEC = parseIntSafe(env('feedTtl', '18000'), 18000, 60);
 
 // 单例 DB
 let _db: Database.Database | null = null;

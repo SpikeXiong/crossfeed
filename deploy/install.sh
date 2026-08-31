@@ -10,8 +10,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 LABEL="com.crossfeed"
-PORT="${PORT:-4000}"
-HOST="${HOST:-0.0.0.0}"
+PORT="${CROSSFEED_PORT:-4000}"
+HOST="${CROSSFEED_HOST:-0.0.0.0}"
 OPENCLI_PKG="@jackwener/opencli"
 CLIS_BUNDLE="$ROOT/deploy/opencli-clis"
 OPENCLI_HOME="${OPENCLI_HOME:-$HOME/.opencli}"
@@ -161,10 +161,10 @@ ensure_opencli() {
   fi
 
   resolve_opencli_bin
-  if [[ -z "$OPENCLI_BIN" || "${OPENCLI_UPDATE:-}" == "1" ]]; then
+  if [[ -z "$OPENCLI_BIN" || "${CROSSFEED_OPENCLI_UPDATE:-}" == "1" ]]; then
     install_opencli_pkg
   else
-    dim "OpenCLI 已在：${OPENCLI_BIN}（要升级设 OPENCLI_UPDATE=1）"
+    dim "OpenCLI 已在：${OPENCLI_BIN}（要升级设 CROSSFEED_OPENCLI_UPDATE=1）"
   fi
   sync_adapters
   verify_opencli
@@ -257,15 +257,15 @@ install_macos() {
   <dict>
     <key>NODE_ENV</key>
     <string>production</string>
-    <key>HOST</key>
+    <key>CROSSFEED_HOST</key>
     <string>${HOST}</string>
-    <key>PORT</key>
+    <key>CROSSFEED_PORT</key>
     <string>${PORT}</string>
     <key>PATH</key>
     <string>${PATH_VALUE}</string>
     <key>HOME</key>
     <string>${HOME}</string>
-    <key>OPENCLI_BIN</key>
+    <key>CROSSFEED_OPENCLI_BIN</key>
     <string>${OPENCLI_BIN}</string>
   </dict>
   <key>RunAtLoad</key>
@@ -303,11 +303,11 @@ WorkingDirectory=${ROOT}
 ExecStart=${NODE_BIN} ${ROOT}/backend/dist/server.js
 Restart=on-failure
 Environment=NODE_ENV=production
-Environment=HOST=${HOST}
-Environment=PORT=${PORT}
+Environment=CROSSFEED_HOST=${HOST}
+Environment=CROSSFEED_PORT=${PORT}
 Environment=PATH=${PATH_VALUE}
 Environment=HOME=${HOME}
-Environment=OPENCLI_BIN=${OPENCLI_BIN}
+Environment=CROSSFEED_OPENCLI_BIN=${OPENCLI_BIN}
 
 [Install]
 WantedBy=default.target

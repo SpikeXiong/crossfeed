@@ -9,11 +9,11 @@ primary_region = "sin"           # 新加坡（适合国内访问）；也可用
 
 [env]
   NODE_ENV = "production"
-  PORT = "4000"
-  HOST = "0.0.0.0"
+  CROSSFEED_PORT = "4000"
+  CROSSFEED_HOST = "0.0.0.0"
 
 # 你的 secrets 单独用 `fly secrets set` 配：
-#   fly secrets set MINIMAX_API_KEY=xxx MINIMAX_BASE_URL=xxx MINIMAX_MODEL=xxx
+#   fly secrets set CROSSFEED_LLM_API_KEY=xxx CROSSFEED_LLM_BASE_URL=xxx CROSSFEED_LLM_MODEL=xxx
 
 [http_service]
   internal_port = 4000

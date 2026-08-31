@@ -2,7 +2,7 @@
 // 设计：单进程多路由，AI/OpenCLI 耗时操作直接 await（fast 模式）
 // 新增：SQLite 持久化信息流，每 5h 清理过期
 // 新增：结构化日志（ring buffer + /api/logs 端点）
-import './lib/env.js';
+import { env } from './lib/env.js';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
@@ -50,11 +50,11 @@ app.use('*', async (c, next) => {
   }
 });
 
-// CORS：本机 Web + 后续 App（Capacitor / 局域网）。默认放开 Origin，用 CORS_ORIGINS 收紧。
+// CORS：本机 Web + 后续 App（Capacitor / 局域网）。默认放开 Origin，用 CROSSFEED_CORS_ORIGINS 收紧。
 // 后端刻意听 0.0.0.0，App 才能打到这台机器的局域网 IP。
 function resolveCorsOrigin(origin: string): string {
   if (!origin) return '*';
-  const extra = (process.env.CORS_ORIGINS || '*').split(',').map(s => s.trim()).filter(Boolean);
+  const extra = env('corsOrigins', '*').split(',').map(s => s.trim()).filter(Boolean);
   if (extra.includes('*')) return origin;
   if (extra.includes(origin)) return origin;
   if (
@@ -110,7 +110,7 @@ app.get('/api/runtime', (c) => {
     ok: true,
     service: 'crossfeed-backend',
     version: '0.3.0',
-    listen: `${process.env.HOST || '0.0.0.0'}:${process.env.PORT || '4000'}`,
+    listen: `${env('host', '0.0.0.0')}:${env('port', '4000')}`,
     localAdmin,
     platforms: PLATFORM_HOMES.map(p => ({ id: p.id, homeUrl: p.homeUrl, public: !!p.public })),
     themes: Object.entries(FEED_THEMES).map(([id, t]) => ({ id, label: t.label })),
@@ -325,8 +325,8 @@ app.onError((err, c) => {
   return c.json({ ok: false, error: err.message || 'internal error' }, 500);
 });
 
-const PORT = parseIntSafe(process.env.PORT, 4000, 1, 65535);
-const HOST = process.env.HOST || '0.0.0.0';
+const PORT = parseIntSafe(env('port', '4000'), 4000, 1, 65535);
+const HOST = env('host', '0.0.0.0');
 
 console.log(`🚀 Crossfeed starting on http://${HOST}:${PORT}`);
 if (webRoot) console.log(`[server] serving web from ${webRoot}`);

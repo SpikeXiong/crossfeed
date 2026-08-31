@@ -23,7 +23,7 @@ opencli list -f json    # 看当前机器有哪些 site/command
 
 3. Crossfeed 解析可执行文件的顺序：
 
-1. 设置页 `opencli.path` 或环境变量 `OPENCLI_BIN`（绝对路径）
+1. 设置页 `opencli.path` 或环境变量 `CROSSFEED_OPENCLI_BIN`（绝对路径）
 2. `~/.opencli/node_modules/@jackwener/opencli/dist/src/main.js`
 3. 旧路径 `.../dist/cli.js`
 4. PATH 里的 `opencli`
@@ -87,7 +87,7 @@ GET  http://<电脑局域网IP>:4000/api/runtime
 GET  http://<电脑局域网IP>:4000/api/feed/stream?mode=mixed&theme=mixed&sort=shuffle
 ```
 
-后端默认 `HOST=0.0.0.0`。用 `CORS_ORIGINS=*`（默认）或写成 App 的 origin 列表。
+后端默认 `CROSSFEED_HOST=0.0.0.0`。用 `CROSSFEED_CORS_ORIGINS=*`（默认）或写成 App 的 origin 列表。
 
 ## 新写一个 Adapter 的最短路径
 

@@ -1,10 +1,35 @@
+<div align="center">
+
 # Crossfeed
 
-本机多源信息流。把 B 站、微博、知乎、抖音、小红书、YouTube、X、[Hacker News](https://news.ycombinator.com/) 混在同一条时间线上，用本机 [OpenCLI](https://github.com/jackwener/OpenCLI) 抓取，不经过第三方聚合站。
+**本机多源信息流 · 电脑当服务器，手机当客户端**
 
-电脑当服务器，手机当客户端。站点登录和管理只允许 `localhost`。
+把 B 站、微博、知乎、抖音、小红书、YouTube、X、[Hacker News](https://news.ycombinator.com/) 混在同一条时间线上，用本机 [OpenCLI](https://github.com/jackwener/OpenCLI) 抓取，不经过第三方聚合站。站点登录和管理只允许 `localhost`。
 
-[快速开始](#快速开始) · [部署](#部署) · [OpenCLI](#opencli) · [致谢](#致谢)
+</div>
+
+<br/>
+
+<div align="center">
+
+[![OpenCLI](https://img.shields.io/badge/Powered%20by-OpenCLI-00ADD8?style=for-the-badge&logo=powershell&logoColor=white)](https://github.com/jackwener/OpenCLI)
+[![Node](https://img.shields.io/badge/Node.js-%E2%89%A521-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Backend](https://img.shields.io/badge/Hono-Backend-E36002?style=for-the-badge&logo=hono&logoColor=white)](https://hono.dev)
+[![Frontend](https://img.shields.io/badge/Vite+React-Frontend-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![Storage](https://img.shields.io/badge/SQLite-Storage-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
+[![Style](https://img.shields.io/badge/Tailwind-Styling-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
+[![Platform](https://img.shields.io/badge/macOS%20%7C%20Linux-Platform-555555?style=for-the-badge&logo=linux&logoColor=white)](#)
+
+</div>
+
+<br/>
+
+<div align="center">
+
+[快速开始](#快速开始) · [部署](#部署) · [OpenCLI](#opencli) · [API](#http-api) · [致谢](#致谢)
+
+</div>
 
 ---
 
@@ -63,10 +88,10 @@ npm install && npm run dev
 见上方 [快速开始](#快速开始)。已有安装时跳过 OpenCLI；升级官方包：
 
 ```bash
-OPENCLI_UPDATE=1 ./deploy/install.sh --opencli
+CROSSFEED_OPENCLI_UPDATE=1 ./deploy/install.sh --opencli
 ```
 
-防火墙放行 **4000**。翻译 key 可写 `backend/.env.local`，或之后在 localhost 设置页填。
+防火墙放行 **4000**。LLM Key 写 `backend/.env.local` 的 `CROSSFEED_LLM_*`，或之后在 localhost 设置页填。
 
 ### Docker Compose
 
@@ -107,7 +132,7 @@ your.example.com {
 API_BASE=https://crossfeed-backend.fly.dev/api ./deploy/deploy-vercel.sh
 ```
 
-`frontend/vercel.json` 里 `/api` rewrite 默认指向上述域名。CORS 收紧：`fly secrets set CORS_ORIGINS=https://your-app.vercel.app`。
+`frontend/vercel.json` 里 `/api` rewrite 默认指向上述域名。CORS 收紧：`fly secrets set CROSSFEED_CORS_ORIGINS=https://your-app.vercel.app`。
 
 ### 注意
 
@@ -115,7 +140,7 @@ API_BASE=https://crossfeed-backend.fly.dev/api ./deploy/deploy-vercel.sh
 2. 改站点、清库、看日志只认 **localhost Origin**。
 3. SQLite 不要写在可丢的容器层。
 4. 不要提交 `backend/.env.local` 或 `*.db`。
-5. `HOST` 保持 `0.0.0.0`，否则局域网和 App 连不上。
+5. `CROSSFEED_HOST` 保持 `0.0.0.0`，否则局域网和 App 连不上。
 
 ## 局域网 / 手机
 
@@ -173,7 +198,7 @@ opencli list -f json
 curl -s http://127.0.0.1:4000/api/opencli/status
 ```
 
-可执行文件：设置页 `opencli.path` / `OPENCLI_BIN` → `~/.opencli/node_modules/@jackwener/opencli/dist/src/main.js` → PATH 里的 `opencli`。
+可执行文件：设置页 `opencli.path` / `CROSSFEED_OPENCLI_BIN` → `~/.opencli/node_modules/@jackwener/opencli/dist/src/main.js` → PATH 里的 `opencli`。
 
 换机器再跑 `./deploy/install.sh`。登录态不能拷，需在新机器 localhost 再扫码。可选拷 `./data/crossfeed.db`（配置是明文，只在受信机器之间拷）。
 
@@ -234,21 +259,24 @@ make health / logs / stop / clean
 
 ## 环境变量
 
-写在 `backend/.env.local`（gitignore）。设置页同名项会覆盖，保存后立刻生效。
+写在 `backend/.env.local`（gitignore）。模板见 `backend/.env.example`。设置页里的项会覆盖同义环境变量，保存后立刻生效。
+
+一律用 **`CROSSFEED_` 前缀**。LLM 相关用 `CROSSFEED_LLM_*`。
 
 | 变量 | 默认 | 作用 |
 |---|---|---|
-| `HOST` | `0.0.0.0` | 监听地址。给局域网 / App 用 |
-| `PORT` | `4000` | 页面 + API |
-| `WEB_ROOT` | `frontend/dist` | 静态站目录 |
-| `CORS_ORIGINS` | `*` | Origin 白名单 |
-| `OPENCLI_BIN` | 自动探测 | opencli 或 `main.js` 的绝对路径 |
-| `FEED_TTL_SECONDS` | `18000` | 信息流缓存秒数 |
-| `DATA_DIR` | `./data` | 数据目录 |
-| `DB_PATH` | `$DATA_DIR/crossfeed.db` | SQLite |
-| `MINIMAX_API_KEY` | — | 可选翻译 |
-| `MINIMAX_BASE_URL` | — | 默认 MiniMax v1 |
-| `MINIMAX_MODEL` | — | 例如 `MiniMax-M3` |
+| `CROSSFEED_HOST` | `0.0.0.0` | 监听地址。给局域网 / App 用 |
+| `CROSSFEED_PORT` | `4000` | 页面 + API |
+| `CROSSFEED_WEB_ROOT` | `frontend/dist` | 静态站目录 |
+| `CROSSFEED_CORS_ORIGINS` | `*` | Origin 白名单 |
+| `CROSSFEED_OPENCLI_BIN` | 自动探测 | opencli 或 `main.js` 的绝对路径 |
+| `CROSSFEED_FEED_TTL_SECONDS` | `18000` | 信息流缓存秒数 |
+| `CROSSFEED_DATA_DIR` | `./data` | 数据目录 |
+| `CROSSFEED_DB_PATH` | `$CROSSFEED_DATA_DIR/crossfeed.db` | SQLite |
+| `CROSSFEED_LLM_API_KEY` | — | LLM API Key（OpenAI 兼容） |
+| `CROSSFEED_LLM_BASE_URL` | `https://api.openai.com/v1` | LLM 接口根路径 |
+| `CROSSFEED_LLM_MODEL` | `gpt-4o-mini` | 模型名，例如 `MiniMax-M3` |
+| `CROSSFEED_OPENCLI_MUTED` | `1` | `0` 则前台打开浏览器窗口 |
 | `NODE_ENV` | — | 生产设 `production` |
 
 只有把静态前端单独部署到别的域名、且不用反代 `/api` 时，才需要构建时注入后端地址（见 Vercel 脚本）。
@@ -317,3 +345,11 @@ Crossfeed 站在这些开源项目之上。没有它们就没有这个仓库。
 | Node.js 内置 [test runner](https://nodejs.org/api/test.html) + [tsx](https://github.com/privatenumber/tsx) | 后端测试 |
 
 各源站点（哔哩哔哩、微博、知乎、抖音、小红书、YouTube、X、Hacker News）的数据和登录态属于对应平台，本项目只在你的机器上代为拉取，供个人阅读。
+
+---
+
+<div align="center">
+
+<sub>Built with <a href="https://hono.dev"><img src="https://img.shields.io/badge/Hono-E36002?style=flat-square&logo=hono&logoColor=white" align="absmiddle"/></a> · <a href="https://react.dev"><img src="https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black" align="absmiddle"/></a> · <a href="https://vitejs.dev"><img src="https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white" align="absmiddle"/></a> · <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" align="absmiddle"/></a> · <a href="https://sqlite.org"><img src="https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=sqlite&logoColor=white" align="absmiddle"/></a></sub>
+
+</div>

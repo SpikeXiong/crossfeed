@@ -2,6 +2,7 @@
 // 给后续 App 用：同一套 /api/config + /api/runtime，不读前端 localStorage。
 import { getConfig } from './persistence.js';
 import { parseIntSafe } from './parse.js';
+import { env } from './env.js';
 
 const PLATFORMS = ['bilibili', 'hackernews', 'twitter', 'youtube', 'xiaohongshu', 'weibo', 'zhihu', 'douyin'] as const;
 export type PlatformId = (typeof PLATFORMS)[number];
@@ -15,7 +16,7 @@ function pick<T>(key: string, fallback: T): T {
 }
 
 export function feedTtlSec(): number {
-  return parseIntSafe(String(pick('feed.ttl', process.env.FEED_TTL_SECONDS || '18000')), 18000, 60);
+  return parseIntSafe(String(pick('feed.ttl', env('feedTtl', '18000'))), 18000, 60);
 }
 
 export function defaultPerPage(): number {
@@ -55,8 +56,8 @@ export function skipTextEnrichment(): boolean {
 export function configuredOpenCliPath(): string | null {
   const fromCfg = pick<string>('opencli.path', '');
   if (fromCfg && fromCfg.trim()) return fromCfg.trim();
-  const fromEnv = process.env.OPENCLI_BIN;
-  return fromEnv && fromEnv.trim() ? fromEnv.trim() : null;
+  const fromEnv = env('opencliBin');
+  return fromEnv || null;
 }
 
 export type TranslateProvider = 'free' | 'openai';
@@ -88,13 +89,13 @@ export function openaiSettings(): {
   model: string;
   target: string;
 } {
-  const legacyBase = pick('translate.baseUrl', process.env.MINIMAX_BASE_URL || '');
-  const legacyKey = pick('translate.apiKey', process.env.MINIMAX_API_KEY || '');
-  const legacyModel = pick('translate.model', process.env.MINIMAX_MODEL || '');
+  const fromEnv = env('llmBaseUrl');
+  const fromKey = env('llmApiKey');
+  const fromModel = env('llmModel');
   return {
-    baseUrl: pick('translate.openai.baseUrl', legacyBase || 'https://api.openai.com/v1'),
-    apiKey: pick('translate.openai.apiKey', legacyKey || ''),
-    model: pick('translate.openai.model', legacyModel || 'gpt-4o-mini'),
+    baseUrl: pick('translate.openai.baseUrl', fromEnv || 'https://api.openai.com/v1'),
+    apiKey: pick('translate.openai.apiKey', fromKey || ''),
+    model: pick('translate.openai.model', fromModel || 'gpt-4o-mini'),
     target: pick('translate.target', 'zh'),
   };
 }

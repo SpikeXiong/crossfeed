@@ -1,6 +1,6 @@
 # Crossfeed 自托管 Docker Compose
 # 用法：
-#   cp backend/.env.local.example backend/.env.local  # 填 key
+#   cp backend/.env.example backend/.env.local  # 填 key
 #   docker-compose up -d
 #   打开 http://localhost:8080
 
@@ -17,8 +17,8 @@ services:
       - ./backend/.env.local
     environment:
       - NODE_ENV=production
-      - PORT=4000
-      - HOST=0.0.0.0
+      - CROSSFEED_PORT=4000
+      - CROSSFEED_HOST=0.0.0.0
     expose:
       - "4000"
     # 如果需要 OpenCLI 持久登录状态，把 ~/.opencli 挂进去：
