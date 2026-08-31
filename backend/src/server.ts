@@ -2,6 +2,7 @@
 // 设计：单进程多路由，AI/OpenCLI 耗时操作直接 await（fast 模式）
 // 新增：SQLite 持久化信息流，每 5h 清理过期
 // 新增：结构化日志（ring buffer + /api/logs 端点）
+import './lib/env.js';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
@@ -29,6 +30,7 @@ import {
   sanitizeConfig,
   PUBLIC_WRITE_KEYS,
 } from './lib/localAdmin.js';
+import { mountWeb, resolveWebRoot } from './lib/web.js';
 import type { Context } from 'hono';
 
 const app = new Hono();
@@ -41,7 +43,7 @@ app.use('*', async (c, next) => {
   const ms = Date.now() - start;
   const status = c.res.status;
   // 过滤掉无意义的轮询
-  if (path === '/api/cache/status' || path === '/') {
+  if (path === '/api/cache/status' || path === '/' || path === '/api/health') {
     logger.debug(`${method} ${path} ${status} ${ms}ms`, { ms, status }, 'http');
   } else {
     logger.info(`${method} ${path} ${status} ${ms}ms`, { ms, status }, 'http');
@@ -93,8 +95,14 @@ app.use('*', cors({
   credentials: true,
 }));
 
-// 健康检查 + App 启动探测
-app.get('/', (c) => c.json({ ok: true, service: 'crossfeed-backend', version: '0.3.0' }));
+const healthBody = { ok: true, service: 'crossfeed-backend', version: '0.3.0' };
+app.get('/api/health', (c) => c.json(healthBody));
+
+const webRoot = resolveWebRoot();
+// 没托管前端时 `/` 仍返回 JSON，兼容旧的 health 探测。有 dist 时把 `/` 留给页面。
+if (!webRoot) {
+  app.get('/', (c) => c.json(healthBody));
+}
 
 app.get('/api/runtime', (c) => {
   const localAdmin = isLocalAdmin(c);
@@ -306,6 +314,8 @@ app.delete('/api/logs', (c) => {
   return c.json({ ok: true });
 });
 
+if (webRoot) mountWeb(app, webRoot);
+
 // 404
 app.notFound((c) => c.json({ ok: false, error: 'not found' }, 404));
 
@@ -318,7 +328,9 @@ app.onError((err, c) => {
 const PORT = parseIntSafe(process.env.PORT, 4000, 1, 65535);
 const HOST = process.env.HOST || '0.0.0.0';
 
-console.log(`🚀 Crossfeed backend starting on http://${HOST}:${PORT}`);
+console.log(`🚀 Crossfeed starting on http://${HOST}:${PORT}`);
+if (webRoot) console.log(`[server] serving web from ${webRoot}`);
+else console.log('[server] no frontend/dist — API only. Run `npm run build` then restart for one-process deploy.');
 
 // 启动时清一次（防服务异常宕机后留下的过期行）
 purgeExpired();

@@ -7,18 +7,19 @@ Crossfeed 不内置爬虫。所有源都通过本机 `opencli <site> <command> -
 1. 安装 OpenCLI（Node >= 21）：
 
 ```bash
-npm install -g @jackwener/opencli
+./deploy/install.sh --opencli   # 官方包 + 本仓库 Adapter
+# 或手动：npm install -g @jackwener/opencli
 opencli doctor          # 浏览器类 adapter 需要绿
 opencli list -f json    # 看当前机器有哪些 site/command
 ```
 
-2. **私有 Adapter**（推荐，换机器可复制）放这里，免编译、热加载：
+2. **Crossfeed Adapter** 源文件在仓库 `deploy/opencli-clis/`，一键脚本拷到：
 
 ```
 ~/.opencli/clis/<site>/<command>.js
 ```
 
-例如你写了小红书封面：`~/.opencli/clis/xiaohongshu/note-cover.js`。
+改完后把文件放进仓库 `deploy/opencli-clis/`，下次一键部署会同步过去。
 
 3. Crossfeed 解析可执行文件的顺序：
 
@@ -74,9 +75,8 @@ opencli <site> <command> [args...] -f json [--window background] [--site-session
 
 复制这三样就能复现：
 
-1. `~/.opencli/clis/` — 你的 Adapter
-2. OpenCLI 本体（`npm i -g` 或把 `OPENCLI_BIN` 指到 `main.js`）
-3. 需要登录的站点：在新机器上再扫一次码（persistent session 不能当文件拷）
+1. 再跑 `./deploy/install.sh --opencli`（官方包 + `deploy/opencli-clis/`）
+2. 需要登录的站点：在新机器上再扫一次码（persistent session 不能当文件拷）
 
 可选：把 `./data/crossfeed.db` 拷过去，缓存和设置（含翻译 key）会一起走。密钥在库里是明文，只在受信机器之间拷。
 

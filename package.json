@@ -9,6 +9,7 @@
     "dev:backend": "npm run dev -w backend",
     "dev:frontend": "npm run dev -w frontend",
     "build": "npm run build -w backend && npm run build -w frontend",
+    "start": "npm run start -w backend",
     "start:backend": "npm run start -w backend",
     "preview:frontend": "npm run preview -w frontend",
     "test": "npm run test -w backend",

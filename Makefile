@@ -46,8 +46,20 @@ build: ## 构建生产产物
 	@echo "✓ 构建完成"
 
 .PHONY: start
-start: ## 启动后端（生产模式，需先 build）
-	npm run start:backend
+start: ## 启动生产进程（API + 前端 dist，需先 build）
+	npm run start
+
+.PHONY: opencli
+opencli: ## 安装 OpenCLI 并同步本仓库 Adapter
+	./deploy/install.sh --opencli
+
+.PHONY: deploy
+deploy: ## 一键：OpenCLI + 构建 + 开机自启
+	./deploy/install.sh
+
+.PHONY: undeploy
+undeploy: ## 卸载本机服务
+	./deploy/install.sh --uninstall
 
 .PHONY: preview
 preview: ## 预览前端构建产物
@@ -59,14 +71,16 @@ preview: ## 预览前端构建产物
 
 .PHONY: health
 health: ## 健康检查
-	@echo "→ 后端 health:"
-	@curl -s --noproxy '*' http://127.0.0.1:4000/ || echo "  ✗ 后端未启动"
-	@echo "→ 前端 health:"
-	@curl -s --noproxy '*' -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1:3000/ || echo "  ✗ 前端未启动"
+	@echo "→ API health:"
+	@curl -s --noproxy '*' http://127.0.0.1:4000/api/health || echo "  ✗ 后端未启动"
+	@echo "→ 页面:"
+	@curl -s --noproxy '*' -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1:4000/ || \
+	 curl -s --noproxy '*' -o /dev/null -w "HTTP %{http_code} (dev :3000)\n" http://127.0.0.1:3000/ || echo "  ✗ 页面未启动"
 
 .PHONY: logs
-logs: ## 跟踪日志
-	tail -f /tmp/crossfeed.log
+logs: ## 跟踪本机服务日志
+	@if [ -f "$(HOME)/Library/Logs/crossfeed.log" ]; then tail -f "$(HOME)/Library/Logs/crossfeed.log"; \
+	else echo "还没有 $(HOME)/Library/Logs/crossfeed.log ，先 make deploy"; fi
 
 .PHONY: stop
 stop: ## 停止所有服务
