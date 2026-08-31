@@ -1,0 +1,42 @@
+# 依赖
+node_modules/
+*/node_modules/
+
+# 构建产物
+dist/
+*/dist/
+.next/
+*/.next/
+
+# 日志
+*.log
+/tmp/
+
+# 环境变量（永远不要 commit）
+.env
+.env.local
+.env.*.local
+backend/.env.local
+frontend/.env.local
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Fly.io
+.fly/
+
+# Vercel
+.vercel/
+
+# 持久化数据 (SQLite WAL files)
+data/
+backend/data/
+*.db
+*.db-wal
+*.db-shm

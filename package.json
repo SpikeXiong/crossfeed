@@ -1,0 +1,20 @@
+{
+  "name": "crossfeed",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Crossfeed · 反茧房信息流 — 跨平台 AI 信息流",
+  "workspaces": ["backend", "frontend"],
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "build": "npm run build -w backend && npm run build -w frontend",
+    "start:backend": "npm run start -w backend",
+    "preview:frontend": "npm run preview -w frontend",
+    "test": "npm run test -w backend",
+    "clean": "rm -rf backend/dist frontend/dist node_modules backend/node_modules frontend/node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

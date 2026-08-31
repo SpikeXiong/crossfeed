@@ -1,0 +1,40 @@
+# Crossfeed Backend · Fly.io 配置
+# 文档：https://fly.io/docs/reference/configuration/
+
+app = "crossfeed-backend"        # 改成你的 app name
+primary_region = "sin"           # 新加坡（适合国内访问）；也可用 nrt/hkg
+
+[build]
+  dockerfile = "../Dockerfile.backend"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "4000"
+  HOST = "0.0.0.0"
+
+# 你的 secrets 单独用 `fly secrets set` 配：
+#   fly secrets set MINIMAX_API_KEY=xxx MINIMAX_BASE_URL=xxx MINIMAX_MODEL=xxx
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0       # 0 = 免费层（无流量时停机）
+  # min_machines_running = 1     # 1 = 始终在线（多花点钱但响应快）
+
+  [[s
+    port = "443"
+    handlers = ["http"]
+    secure = true
+  ]
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 100
+    soft_limit = 80
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512                # 后端很轻量，512MB 足够

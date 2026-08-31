@@ -1,0 +1,20 @@
+# Caddyfile · 反代 + 自动 HTTPS
+# 部署到有域名的地方时，把 :80 改成 your-domain.com
+
+:80 {
+  # 前端静态文件
+  root * /var/www/html
+  file_server
+
+  # SPA fallback
+  try_files {path} /index.html
+
+  # API 反代
+  reverse_proxy /api/* backend:4000 {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+  }
+
+  # 健康检查
+  respond /health 200
+}

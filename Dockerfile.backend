@@ -1,0 +1,51 @@
+# Crossfeed Backend Dockerfile
+# 多阶段构建，最终镜像 ~180MB（含 better-sqlite3 原生模块）
+
+# ---- 阶段 1：构建 + 编译原生模块 ----
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# 原生模块编译工具（better-sqlite3）
+RUN apk add --no-cache python3 make g++ libc6-compat
+
+# 装依赖（含原生模块的预编译二进制或源码编译）
+COPY backend/package*.json ./
+RUN npm ci --no-audit --no-fund
+
+# TypeScript 编译
+COPY backend/tsconfig.json ./
+COPY backend/src ./src
+RUN npm run build
+
+# 抠出运行时依赖到 /app/deps（更好的隔离）
+RUN mkdir -p /app/deps && \
+    cp -r node_modules /app/deps/node_modules
+
+# ---- 阶段 2：运行时 ----
+FROM node:20-alpine
+WORKDIR /app
+
+# 拷贝预装好的运行时依赖（含已编译的 better-sqlite3）
+COPY --from=builder /app/deps/node_modules ./node_modules
+
+# 拷贝编译产物
+COPY --from=builder /app/dist ./dist
+
+# 持久化数据目录（Fly.io 用 volume 挂到这里）
+RUN mkdir -p /app/data
+VOLUME ["/app/data"]
+ENV DATA_DIR=/app/data
+
+# 环境
+ENV NODE_ENV=production
+ENV PORT=4000
+ENV HOST=0.0.0.0
+ENV FEED_TTL_SECONDS=18000
+
+EXPOSE 4000
+
+# 健康检查（Fly.io 会用这个判断服务状态）
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:4000/ || exit 1
+
+CMD ["node", "dist/server.js"]
