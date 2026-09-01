@@ -96,6 +96,7 @@ echo "==> 拷贝启动 / 安装脚本 / README"
 cp "$ROOT/start.sh"     "$STAGE_DIR/"
 cp "$ROOT/start.bat"    "$STAGE_DIR/"
 cp "$ROOT/start.ps1"    "$STAGE_DIR/"
+cp "$ROOT/deploy/install.bat" "$STAGE_DIR/deploy/" 2>/dev/null || true  # Windows cmd 包装器（绕开 PS Execution Policy）
 cp -R "$ROOT/deploy"    "$STAGE_DIR/deploy"
 cp "$ROOT/README.md"    "$STAGE_DIR/"
 
@@ -118,10 +119,13 @@ Crossfeed ${VERSION}
     ./start.sh                   # 只启动，不注册自启
     ./deploy/install.sh --opencli  # 只装 OpenCLI，不动系统服务
 
-  Windows（PowerShell）：
-    .\deploy\install.ps1         # 一键：装 OpenCLI + 同步 Adapter + 注册任务计划
-    .\start.bat                  # 只启动
-    .\deploy\install.ps1 -OpenCliOnly   # 只装 OpenCLI
+  Windows（推荐双击 .bat 包装器，绕开 PowerShell Execution Policy）：
+    .\deploy\install.bat         # 一键：装 OpenCLI + 同步 Adapter + 注册任务计划
+    .\start.bat                  # 只启动（不需 install）
+    .\deploy\install.bat -OpenCliOnly   # 只装 OpenCLI
+
+  Windows（如果机器 PowerShell policy 已放宽到 RemoteSigned 或更低）：
+    .\deploy\install.ps1         # 与 .bat 等价（脚本头部已自带 Bypass）
 
 要求：Node.js ≥ 21、npm、本机 Chrome / Edge。
 OpenCLI 会装到 ~/.opencli/（macOS / Linux）或 %USERPROFILE%\.opencli\（Windows）。

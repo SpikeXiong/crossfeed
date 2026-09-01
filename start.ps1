@@ -1,5 +1,7 @@
 # Crossfeed · Windows 启动脚本（PowerShell）
 # 用法：.\start.ps1
+# Windows 默认 Execution Policy 可能会拦截；推荐双击 start.bat 走 cmd 路径
+try { Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force } catch { }
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Definition

@@ -50,7 +50,7 @@
 | :--- | :--- | :--- |
 | Linux x64 | `crossfeed-v*-linux-x64.tar.gz` | `./start.sh` 或 `./install.sh` |
 | macOS ARM64（Apple Silicon） | `crossfeed-v*-macos-arm64.zip` | `./start.sh` 或 `./install.sh` |
-| Windows x64 | `crossfeed-v*-windows-x64.zip` | 双击 `start.bat`，或 `.\deploy\install.ps1` |
+| Windows x64 | `crossfeed-v*-windows-x64.zip` | 双击 `start.bat`；装服务用 `.\deploy\install.bat` |
 
 > 旧版 Intel Mac 用户请用源码 `npm install && npm run start`（OpenCLI 走本机 Chrome，不挑架构）。后续再考虑要不要加 Intel release。
 >
@@ -70,14 +70,23 @@ cd crossfeed
 
 或 `make deploy`。同一条命令会安装 [OpenCLI](https://github.com/jackwener/OpenCLI)、同步本仓库 Adapter、构建，并注册开机自启（macOS LaunchAgent / Linux systemd 用户服务）。
 
-### Windows（PowerShell）
+### Windows
+
+> **推荐双击 `install.bat`**（cmd 包装器，绕开 PowerShell Execution Policy 拦截）。
+
+```bat
+:: 在解压后的目录双击运行，或在 cmd / PowerShell 里：
+deploy\install.bat
+```
+
+如果机器已经允许 PowerShell 跑未签名脚本（policy = `RemoteSigned` 或更低），也可以直接：
 
 ```powershell
-git clone https://github.com/SpikeXiong/crossfeed.git
-cd crossfeed
 .\deploy\install.ps1
 ```
 
+> `install.ps1` 头部会临时对本进程设 `Bypass`（不修改系统/用户级 policy）；`install.bat` 是 cmd 包装器，内部用 `-ExecutionPolicy Bypass` 调 `install.ps1`，对所有 Windows 都通用。
+>
 > 用 Git Bash / WSL 也可以直接跑 `./deploy/install.sh`（脚本会检测到 `MINGW*` / `MSYS*` / `CYGWIN*` / WSL 并走 Windows 路径）。
 
 同一条命令会安装 OpenCLI、构建产物、注册 **Windows 任务计划**（`Crossfeed` 任务，登录时启动，不需要管理员权限），日志写到 `%LOCALAPPDATA%\Crossfeed\crossfeed.log`。
@@ -91,9 +100,9 @@ cd crossfeed
 | 日志（macOS） | `~/Library/Logs/crossfeed.log` |
 | 日志（Linux） | `journalctl --user -u crossfeed -f` |
 | 日志（Windows） | `%LOCALAPPDATA%\Crossfeed\crossfeed.log` |
-| 只装抓取 | `./deploy/install.sh --opencli` / `.\deploy\install.ps1 -OpenCliOnly` |
-| 卸载服务 | `./deploy/install.sh --uninstall` / `.\deploy\install.ps1 -Uninstall`（**不动** OpenCLI 和登录 cookie） |
-| 装但不注册自启 | `./deploy/install.sh --no-autostart` / `.\deploy\install.ps1 -NoAutostart` |
+| 只装抓取 | `./deploy/install.sh --opencli` / `deploy\install.bat -OpenCliOnly` |
+| 卸载服务 | `./deploy/install.sh --uninstall` / `deploy\install.bat -Uninstall`（**不动** OpenCLI 和登录 cookie） |
+| 装但不注册自启 | `./deploy/install.sh --no-autostart` / `deploy\install.bat -NoAutostart` |
 
 没装 Chrome 时 Hacker News 还能抓，其它站不行。需要登录的站请用 **localhost:4000** 打开设置扫码。`opencli doctor` 可自查浏览器。
 
@@ -356,6 +365,7 @@ GET /api/feed?page=2
 ├── frontend/                # Vite + React
 ├── deploy/
 │   ├── install.sh           # 一键（macOS / Linux / Windows Git Bash）
+│   ├── install.bat          # 一键（Windows cmd，绕开 PS Execution Policy）
 │   ├── install.ps1          # 一键（Windows PowerShell）
 │   ├── opencli-clis/        # 覆盖 / 新增的 Adapter
 │   ├── nginx.conf

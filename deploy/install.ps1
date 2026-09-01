@@ -17,6 +17,9 @@ param(
   [string]$Host = "0.0.0.0"
 )
 
+# 自身防御：临时对本进程解除 Execution Policy（不影响系统/用户级 policy）。
+# 如果机器 policy 太严连 Set-ExecutionPolicy 都禁止，用 deploy/install.bat 包装器也能跑。
+try { Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force } catch { }
 $ErrorActionPreference = "Stop"
 
 # ---------------------------------------------------------------
