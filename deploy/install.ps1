@@ -211,15 +211,20 @@ function Install-Service {
   # wrapper 脚本：cd 到项目根、设环境变量、跑后端
   if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
   $wrapper = Join-Path $Root "start-service.bat"
-  @"
-@echo off
-set NODE_ENV=production
-set CROSSFEED_HOST=$Host
-set CROSSFEED_PORT=$Port
-set CROSSFEED_OPENCLI_BIN=$OpenCliBin
-cd /d "$Root"
-"$NodeBin" "$Root\backend\dist\server.js" > "$LogFile" 2>&1
-"@ | Set-Content -Path $wrapper -Encoding ASCII
+
+  # 用字符串数组而不是 here-string：避免 PS 5.1 在缩进 here-string 解析上的兼容性问题
+  # （`@"..."@` 起始行如果带缩进，部分 PS 5.1 build 会把 `@"` 当 `@(` array 起始报错）
+  $lines = @(
+    '@echo off',
+    'set NODE_ENV=production',
+    ('set CROSSFEED_HOST=' + $Host),
+    ('set CROSSFEED_PORT=' + $Port),
+    ('set CROSSFEED_OPENCLI_BIN=' + $OpenCliBin),
+    ('cd /d "' + $Root + '"'),
+    ('"' + $NodeBin + '" "' + $Root + '\backend\dist\server.js" > "' + $LogFile + '" 2>&1')
+  )
+  $content = ($lines -join "`r`n")
+  [System.IO.File]::WriteAllText($wrapper, $content, [System.Text.Encoding]::ASCII)
 
   # 注册任务计划（ONLOGON = 用户登录时启动，LIMITED = 普通权限）
   $action = New-ScheduledTaskAction -Execute $wrapper
