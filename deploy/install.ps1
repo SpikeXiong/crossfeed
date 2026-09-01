@@ -35,6 +35,7 @@ $OpenCliBin  = $null
 $LogDir      = Join-Path $env:LOCALAPPDATA "Crossfeed"
 $LogFile     = Join-Path $LogDir "crossfeed.log"
 $NodeBin     = $null
+$NpmCmd      = $null
 
 # OpenCLI 适配器包（从仓库 deploy/opencli-clis/ 同步到 ~/.opencli/clis/）
 $ClisBundle  = Join-Path $Root "deploy\opencli-clis"
@@ -55,6 +56,39 @@ function Assert-NativeExit {
     Write-Err "$Label 失败（exit $LASTEXITCODE）。"
     exit $LASTEXITCODE
   }
+}
+
+# Node 22 ships npm.ps1; "& npm install" makes that shim drop the first letter → Unknown command "pm".
+# Always invoke npm.cmd. See https://github.com/npm/cli/issues/8528
+function Resolve-NpmCmd {
+  $app = Get-Command npm.cmd -ErrorAction SilentlyContinue
+  if ($app -and $app.Path -and ($app.Path -like "*.cmd")) { return $app.Path }
+  $npm = Get-Command npm -ErrorAction SilentlyContinue
+  if ($npm -and $npm.Path) {
+    $sibling = Join-Path (Split-Path -Parent $npm.Path) "npm.cmd"
+    if (Test-Path $sibling) { return $sibling }
+  }
+  foreach ($root in @(${env:ProgramFiles}, ${env:ProgramFiles(x86)})) {
+    if (-not $root) { continue }
+    $candidate = Join-Path $root "nodejs\npm.cmd"
+    if (Test-Path $candidate) { return $candidate }
+  }
+  return $null
+}
+
+function Invoke-Npm {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string[]]$NpmArgs,
+    [string]$FailLabel = ""
+  )
+  if (-not $script:NpmCmd -or ($script:NpmCmd -like "*.ps1")) {
+    Write-Err "拒绝调用 npm.ps1（Node 22 shim 会把 install 收成 pm）。需要 npm.cmd。"
+    exit 1
+  }
+  # Splat a string[] so "@jackwener/opencli" stays one argument (not PS splat).
+  & $script:NpmCmd @NpmArgs
+  if ($FailLabel) { Assert-NativeExit $FailLabel }
 }
 
 # PS 5.1 Set-Content -Encoding UTF8 writes a BOM; npm then EJSONPARSE's package.json.
@@ -109,19 +143,33 @@ function Get-LanIp {
 #  Node / npm 探测
 # ---------------------------------------------------------------
 function Assert-Node {
-  $node = Get-Command node -ErrorAction SilentlyContinue
+  $node = Get-Command node.exe -CommandType Application -ErrorAction SilentlyContinue
+  if (-not $node) { $node = Get-Command node -ErrorAction SilentlyContinue }
   if (-not $node) {
     Write-Err "找不到 node。请先装 Node.js ≥ 21 (https://nodejs.org/)"
     exit 1
   }
   $script:NodeBin = $node.Path
-  $ver = & node -v
+  if (-not $script:NodeBin) { $script:NodeBin = $node.Definition }
+  if ($script:NodeBin -like "*.ps1") {
+    $exe = Join-Path (Split-Path -Parent $script:NodeBin) "node.exe"
+    if (Test-Path $exe) { $script:NodeBin = $exe }
+  }
+
+  $script:NpmCmd = Resolve-NpmCmd
+  if (-not $script:NpmCmd) {
+    Write-Err "找不到 npm.cmd。请先装 Node.js（https://nodejs.org/）"
+    exit 1
+  }
+
+  $ver = & $script:NodeBin -v
   $major = [int]($ver.TrimStart("v").Split(".")[0])
   if ($major -lt 21) {
     Write-Err "Crossfeed 需要 Node ≥ 21（当前 $ver）。"
     exit 1
   }
   Write-Ok "Node $ver ($($script:NodeBin))"
+  Write-Ok "npm $($script:NpmCmd)"
 }
 
 # ---------------------------------------------------------------
@@ -154,11 +202,11 @@ function Install-OpenCliPkg {
   Write-Info "==> 安装 $OpenCliPkg → $OpenCliHome"
   Push-Location $OpenCliHome
   try {
-    & npm install --no-fund --no-audit $OpenCliPkg
-    Assert-NativeExit "npm install $OpenCliPkg → $OpenCliHome"
+    Invoke-Npm -NpmArgs @("install", "--no-fund", "--no-audit", $OpenCliPkg) `
+      -FailLabel "npm install $OpenCliPkg → $OpenCliHome"
   } finally { Pop-Location }
   # 全局（失败不挡；后端走 ~/.opencli 入口）
-  & npm install -g --no-fund --no-audit $OpenCliPkg
+  Invoke-Npm -NpmArgs @("install", "-g", "--no-fund", "--no-audit", $OpenCliPkg)
   if ($LASTEXITCODE -ne 0) {
     Write-Warn "全局 npm 没装上 opencli 命令，不影响：后端会走 $OpenCliHome"
   }
@@ -183,7 +231,7 @@ function Verify-OpenCli {
     exit 1
   }
   Write-Info "==> 探测 Adapter 列表"
-  $out = & node $bin list -f json 2>$null
+  $out = & $script:NodeBin $bin list -f json 2>$null
   if (-not $out) {
     Write-Err "opencli list 没有输出。看：$bin"
     exit 1
@@ -284,15 +332,13 @@ Ensure-OpenCli
 Write-Info "==> npm install"
 Push-Location $Root
 try {
-  & npm install
-  Assert-NativeExit "npm install"
+  Invoke-Npm -NpmArgs @("install") -FailLabel "npm install"
 } finally { Pop-Location }
 
 Write-Info "==> 构建前后端"
 Push-Location $Root
 try {
-  & npm run build
-  Assert-NativeExit "npm run build"
+  Invoke-Npm -NpmArgs @("run", "build") -FailLabel "npm run build"
 } finally { Pop-Location }
 
 if (-not (Test-Path (Join-Path $Root "frontend\dist\index.html"))) {
