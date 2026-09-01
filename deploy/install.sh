@@ -319,12 +319,13 @@ fi
 mkdir -p "$ROOT/data"
 
 wait_health() {
-  local i
-  for i in $(seq 1 40); do
+  local n=0
+  while (( n < 40 )); do
     if curl -sf --noproxy '*' "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
       return 0
     fi
     sleep 0.25
+    n=$((n + 1))
   done
   return 1
 }
@@ -470,21 +471,25 @@ EOF
 }
 
 LOG_HINT=""
-case "$OS" in
-  macos)             LOG_HINT="$(install_macos)" ;;
-  linux|wsl)         LOG_HINT="$(install_linux)" ;;
-  windows)           LOG_HINT="$(install_windows)" ;;
-  *)
-    red "未支持的系统：$(uname -s)。可以手动：NODE_ENV=production npm run start"
-    exit 1
-    ;;
-esac
-
-if wait_health; then
-  green "Crossfeed 已在本机跑起来。"
+if [[ "${NO_AUTOSTART}" -eq 1 ]]; then
+  dim "跳过注册开机自启（--no-autostart）。手动跑：./start.sh"
 else
-  red "服务没在 ${PORT} 端口起来。看日志：${LOG_HINT}"
-  exit 1
+  case "$OS" in
+    macos)             LOG_HINT="$(install_macos)" ;;
+    linux|wsl)         LOG_HINT="$(install_linux)" ;;
+    windows)           LOG_HINT="$(install_windows)" ;;
+    *)
+      red "未支持的系统：$(uname -s)。可以手动：NODE_ENV=production npm run start"
+      exit 1
+      ;;
+  esac
+
+  if wait_health; then
+    green "Crossfeed 已在本机跑起来。"
+  else
+    red "服务没在 ${PORT} 端口起来。看日志：${LOG_HINT}"
+    exit 1
+  fi
 fi
 
 IP="$(lan_ip)"

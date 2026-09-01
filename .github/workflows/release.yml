@@ -22,9 +22,9 @@ jobs:
       matrix:
         target:
           - { os: ubuntu-latest,    label: linux-x64,    archive: tar.gz }
-          - { os: macos-latest,     label: macos-x64,    archive: zip }
-          - { os: macos-13,         label: macos-arm64,  archive: zip }
-          - { os: windows-latest,   label: windows-x64,  archive: zip }
+          - { os: macos-13,         label: macos-x64,    archive: zip }
+          - { os: macos-latest,     label: macos-arm64,  archive: zip }
+          - { os: windows-2022,     label: windows-x64,  archive: zip }
     steps:
       - name: Checkout
         uses: actions/checkout@v4

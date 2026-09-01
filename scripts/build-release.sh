@@ -48,8 +48,7 @@ done
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-# 标准化 version：v0.1.0 → 0.1.0
-VERSION_TAG="${VERSION#v}"
+# 标准化 version：v0.1.0 → 用于产物名
 OUT_NAME="crossfeed-${VERSION}-${TARGET}"
 STAGE_DIR="${STAGE%/}/${OUT_NAME}"
 echo "==> 打包：$OUT_NAME.$ARCHIVE"
@@ -65,24 +64,30 @@ mkdir -p "$STAGE_DIR/backend" "$STAGE_DIR/frontend"
 cp -R "$ROOT/backend/dist"  "$STAGE_DIR/backend/"
 cp -R "$ROOT/frontend/dist" "$STAGE_DIR/frontend/"
 
-# 2) 装生产依赖到一个临时 backend dir
+# 2) 用根 lockfile 装生产依赖（workspace 没有独立的 backend/package-lock.json）
 echo "==> npm ci --omit=dev（生产依赖）"
-TMP_BACKEND="$(mktemp -d)"
-cp "$ROOT/backend/package.json" "$ROOT/backend/package-lock.json" "$TMP_BACKEND/"
+TMP_INSTALL="$(mktemp -d)"
+mkdir -p "$TMP_INSTALL/backend" "$TMP_INSTALL/frontend"
+cp "$ROOT/package.json" "$ROOT/package-lock.json" "$TMP_INSTALL/"
+cp "$ROOT/backend/package.json" "$TMP_INSTALL/backend/"
+cp "$ROOT/frontend/package.json" "$TMP_INSTALL/frontend/"
 # 探测 npm 绝对路径（subshell 里 PATH 会被切到 /usr/bin，npm 通常在 /opt/homebrew/bin）
 NPM_BIN="$(command -v npm)"
 NODE_BIN_DIR="$(cd "$(dirname "$NPM_BIN")" && pwd)"
 (
-  cd "$TMP_BACKEND"
+  cd "$TMP_INSTALL"
   export PATH="$NODE_BIN_DIR:$PATH"
   npm ci --omit=dev --no-audit --no-fund --ignore-scripts \
     >/dev/null
-  # 再跑一次允许 scripts（better-sqlite3 的 postinstall 不能 ignore）
+  # 再跑一次允许 scripts（better-sqlite3 的 native rebuild 不能 ignore）
   npm rebuild --omit=dev --ignore-scripts=false >/dev/null
 )
-# 把 prod node_modules 拷到 stage（替换原 backend/node_modules）
-cp -R "$TMP_BACKEND/node_modules" "$STAGE_DIR/backend/node_modules"
-rm -rf "$TMP_BACKEND"
+# workspace 依赖 hoist 到根 node_modules；backend 下也可能有嵌套包
+cp -R "$TMP_INSTALL/node_modules" "$STAGE_DIR/node_modules"
+if [[ -d "$TMP_INSTALL/backend/node_modules" ]]; then
+  cp -R "$TMP_INSTALL/backend/node_modules" "$STAGE_DIR/backend/node_modules"
+fi
+rm -rf "$TMP_INSTALL"
 
 # 3) 顶层 node_modules：仅放 concurrently（root devDep 实际不进 prod）—— 不放
 # 4) 拷贝启动 / 安装 / 文档

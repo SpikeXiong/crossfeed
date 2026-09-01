@@ -27,7 +27,7 @@ fi
 
 # 询问后端地址
 if [ -z "$API_BASE" ]; then
-  read -p "后端地址（比如 https://crossfeed-backend.fly.dev/api）: " API_BASE
+  read -r -p "后端地址（比如 https://crossfeed-backend.fly.dev/api）: " API_BASE
 fi
 
 cd "$(dirname "$0")/../frontend"

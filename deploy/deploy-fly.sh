@@ -48,7 +48,7 @@ BASE="${CROSSFEED_LLM_BASE_URL:-https://api.openai.com/v1}"
 MODEL="${CROSSFEED_LLM_MODEL:-gpt-4o-mini}"
 
 if [ -z "$KEY" ]; then
-  read -p "CROSSFEED_LLM_API_KEY: " KEY
+  read -r -p "CROSSFEED_LLM_API_KEY: " KEY
 fi
 
 # 准备 fly.toml（替换 app name）
