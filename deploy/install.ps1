@@ -48,6 +48,22 @@ function Write-Ok    { param([string]$m) Write-Host $m -ForegroundColor Green }
 function Write-Warn  { param([string]$m) Write-Host $m -ForegroundColor DarkGray }
 function Write-Err   { param([string]$m) Write-Host $m -ForegroundColor Red }
 
+# PS 5.1: $ErrorActionPreference does not stop native commands. Check $LASTEXITCODE.
+function Assert-NativeExit {
+  param([string]$Label)
+  if ($LASTEXITCODE -ne 0) {
+    Write-Err "$Label 失败（exit $LASTEXITCODE）。"
+    exit $LASTEXITCODE
+  }
+}
+
+# PS 5.1 Set-Content -Encoding UTF8 writes a BOM; npm then EJSONPARSE's package.json.
+function Write-Utf8NoBom {
+  param([string]$Path, [string]$Text)
+  $enc = New-Object System.Text.UTF8Encoding $false
+  [System.IO.File]::WriteAllText($Path, $Text, $enc)
+}
+
 # ---------------------------------------------------------------
 #  Chrome 探测
 # ---------------------------------------------------------------
@@ -124,15 +140,28 @@ function Resolve-OpenCliBin {
 function Install-OpenCliPkg {
   if (-not (Test-Path $OpenCliHome)) { New-Item -ItemType Directory -Path $OpenCliHome | Out-Null }
   $pkg = Join-Path $OpenCliHome "package.json"
+  $pkgJson = '{"name":"opencli-user-runtime","private":true,"type":"module"}'
   if (-not (Test-Path $pkg)) {
-    '{"name":"opencli-user-runtime","private":true,"type":"module"}' | Set-Content -Path $pkg -Encoding UTF8
+    Write-Utf8NoBom $pkg $pkgJson
+  } else {
+    $bytes = [System.IO.File]::ReadAllBytes($pkg)
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+      Write-Warn "去掉 $pkg 的 UTF-8 BOM（npm 无法解析）。"
+      $text = [System.Text.Encoding]::UTF8.GetString($bytes, 3, $bytes.Length - 3)
+      Write-Utf8NoBom $pkg $text
+    }
   }
   Write-Info "==> 安装 $OpenCliPkg → $OpenCliHome"
   Push-Location $OpenCliHome
-  try { & npm install --no-fund --no-audit $OpenCliPkg | Out-Null }
-  finally { Pop-Location }
-  # 全局（失败不挡）
-  & npm install -g --no-fund --no-audit $OpenCliPkg *> $null
+  try {
+    & npm install --no-fund --no-audit $OpenCliPkg
+    Assert-NativeExit "npm install $OpenCliPkg → $OpenCliHome"
+  } finally { Pop-Location }
+  # 全局（失败不挡；后端走 ~/.opencli 入口）
+  & npm install -g --no-fund --no-audit $OpenCliPkg
+  if ($LASTEXITCODE -ne 0) {
+    Write-Warn "全局 npm 没装上 opencli 命令，不影响：后端会走 $OpenCliHome"
+  }
 }
 
 function Sync-Adapters {
@@ -150,7 +179,7 @@ function Sync-Adapters {
 function Verify-OpenCli {
   $bin = Resolve-OpenCliBin
   if (-not $bin) {
-    Write-Err "OpenCLI 装完后仍找不到入口。"
+    Write-Err "OpenCLI 装完后仍找不到入口。看上面的 npm 输出，以及 $OpenCliHome\node_modules\@jackwener\opencli"
     exit 1
   }
   Write-Info "==> 探测 Adapter 列表"
@@ -254,13 +283,17 @@ Ensure-OpenCli
 
 Write-Info "==> npm install"
 Push-Location $Root
-try { & npm install | Out-Null }
-finally { Pop-Location }
+try {
+  & npm install
+  Assert-NativeExit "npm install"
+} finally { Pop-Location }
 
 Write-Info "==> 构建前后端"
 Push-Location $Root
-try { & npm run build | Out-Null }
-finally { Pop-Location }
+try {
+  & npm run build
+  Assert-NativeExit "npm run build"
+} finally { Pop-Location }
 
 if (-not (Test-Path (Join-Path $Root "frontend\dist\index.html"))) {
   Write-Err "frontend\dist\index.html 不存在，构建失败。"
