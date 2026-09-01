@@ -50,13 +50,13 @@ cd "$ROOT"
 
 # 标准化 version：v0.1.0 → 用于产物名
 OUT_NAME="crossfeed-${VERSION}-${TARGET}"
-STAGE_DIR="${STAGE%/}/${OUT_NAME}"
+STAGE="${STAGE%/}"
+rm -rf "$STAGE"
+mkdir -p "${STAGE}/${OUT_NAME}"
+STAGE="$(cd "$STAGE" && pwd)"
+STAGE_DIR="${STAGE}/${OUT_NAME}"
 echo "==> 打包：$OUT_NAME.$ARCHIVE"
 echo "==> 临时目录：$STAGE_DIR"
-
-# 清理
-rm -rf "$STAGE"
-mkdir -p "$STAGE_DIR"
 
 # 1) 复制构建产物
 echo "==> 拷贝 backend/dist + frontend/dist"
@@ -79,8 +79,9 @@ NODE_BIN_DIR="$(cd "$(dirname "$NPM_BIN")" && pwd)"
   export PATH="$NODE_BIN_DIR:$PATH"
   npm ci --omit=dev --no-audit --no-fund --ignore-scripts \
     >/dev/null
-  # 再跑一次允许 scripts（better-sqlite3 的 native rebuild 不能 ignore）
-  npm rebuild --omit=dev --ignore-scripts=false >/dev/null
+  # 跑 scripts 让 better-sqlite3 等 native module 重新编译
+  # （npm rebuild 默认就执行 install scripts，不需要 --ignore-scripts=false）
+  npm rebuild >/dev/null
 )
 # workspace 依赖 hoist 到根 node_modules；backend 下也可能有嵌套包
 cp -R "$TMP_INSTALL/node_modules" "$STAGE_DIR/node_modules"
@@ -129,16 +130,15 @@ OpenCLI 会装到 ~/.opencli/（macOS / Linux）或 %USERPROFILE%\.opencli\（Wi
 详细说明见 README.md。
 EOF
 
-# 7) 打包
+# 7) 打包（已 cd 进 STAGE，产物写在目录内，文件名为 crossfeed-v*-<target>.zip|tar.gz）
 echo "==> 打包"
 cd "$STAGE"
 case "$ARCHIVE" in
   zip)
-    OUT="$STAGE/${OUT_NAME}.zip"
+    OUT="${OUT_NAME}.zip"
     if command -v zip >/dev/null 2>&1; then
       zip -r -q "$OUT" "$OUT_NAME"
     else
-      # 退而求其次：PowerShell Compress-Archive（macOS / Linux 也可能装了 pwsh）
       if command -v pwsh >/dev/null 2>&1; then
         pwsh -NoProfile -Command "Compress-Archive -Path '${OUT_NAME}' -DestinationPath '${OUT}' -Force"
       else
@@ -148,7 +148,7 @@ case "$ARCHIVE" in
     fi
     ;;
   tar.gz)
-    OUT="$STAGE/${OUT_NAME}.tar.gz"
+    OUT="${OUT_NAME}.tar.gz"
     tar -czf "$OUT" "$OUT_NAME"
     ;;
   *)
@@ -157,5 +157,5 @@ case "$ARCHIVE" in
     ;;
 esac
 
-echo "==> 完成：$OUT"
+echo "==> 完成：${STAGE}/${OUT}"
 ls -lh "$OUT"
