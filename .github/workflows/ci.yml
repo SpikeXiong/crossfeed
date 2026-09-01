@@ -47,17 +47,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          NODE_ENV=production CROSSFEED_PORT=4000 node backend/dist/server.js &
+          SERVER_PID=$!
+          sleep 3
+          body="$(curl -sf http://127.0.0.1:4000/api/health)" || { echo "health curl failed"; exit 1; }
+          printf '%s\n' "$body"
+          printf '%s\n' "$body" | grep -q '"ok"' || { echo "health failed"; exit 1; }
           if [ "$RUNNER_OS" = "Windows" ]; then
-            NODE_ENV=production CROSSFEED_PORT=4000 node backend/dist/server.js &
-            sleep 3
-            curl -sf http://127.0.0.1:4000/api/health | tee /dev/stderr | grep -q '"ok"' || (echo "health failed"; exit 1)
             taskkill //F //IM node.exe 2>/dev/null || true
           else
-            NODE_ENV=production CROSSFEED_PORT=4000 node backend/dist/server.js &
-            SERVER_PID=$!
-            sleep 3
-            curl -sf http://127.0.0.1:4000/api/health | tee /dev/stderr | grep -q '"ok"' || (echo "health failed"; kill $SERVER_PID; exit 1)
-            kill $SERVER_PID
+            kill "$SERVER_PID"
           fi
 
   lint-shell:
