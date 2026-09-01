@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Crossfeed 一键部署：OpenCLI + Adapter + 构建 + 本机用户服务
+# 平台：macOS / Linux / Windows (Git Bash / WSL / MSYS2)
+#
 # 用法：
 #   ./deploy/install.sh              全套
 #   ./deploy/install.sh --opencli    只装 OpenCLI 和 Adapter
 #   ./deploy/install.sh --uninstall  卸掉本机服务（不动 OpenCLI / 登录态）
+#   ./deploy/install.sh --no-autostart  装但不注册开机自启
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,6 +23,7 @@ OPENCLI_BIN=""
 red() { printf '\033[31m%s\033[0m\n' "$*"; }
 green() { printf '\033[32m%s\033[0m\n' "$*"; }
 dim() { printf '\033[90m%s\033[0m\n' "$*"; }
+blue() { printf '\033[34m%s\033[0m\n' "$*"; }
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -28,26 +32,96 @@ need() {
   }
 }
 
+# ---------------------------------------------------------------
+#  平台探测（macOS / Linux / Windows via Git Bash / WSL / MSYS）
+# ---------------------------------------------------------------
+detect_os() {
+  case "$(uname -s)" in
+    Darwin)              echo "macos" ;;
+    Linux)               echo "linux" ;;
+    MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
+    *)
+      # WSL：内核是 Linux，但 uname -s 也是 Linux。靠 /proc/version 或 WSLENV 区分。
+      if grep -qiE "microsoft|wsl" /proc/version 2>/dev/null; then
+        echo "wsl"
+      else
+        echo "unknown"
+      fi
+      ;;
+  esac
+}
+
+OS="$(detect_os)"
+
+# ---------------------------------------------------------------
+#  Chrome 探测（macOS / Linux / Windows）
+# ---------------------------------------------------------------
+chrome_ok() {
+  case "$OS" in
+    macos)
+      [[ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]]
+      ;;
+    linux|wsl)
+      command -v google-chrome >/dev/null 2>&1 \
+        || command -v google-chrome-stable >/dev/null 2>&1 \
+        || command -v chromium >/dev/null 2>&1 \
+        || command -v chromium-browser >/dev/null 2>&1 \
+        || [[ -x "/usr/bin/google-chrome" ]] \
+        || [[ -x "/usr/bin/google-chrome-stable" ]] \
+        || [[ -x "/snap/bin/chromium" ]]
+      ;;
+    windows)
+      local p
+      for p in \
+        "/c/Program Files/Google/Chrome/Application/chrome.exe" \
+        "/c/Program Files (x86)/Google/Chrome/Application/chrome.exe" \
+        "/c/Program Files/Microsoft/Edge/Application/msedge.exe" \
+        "/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"; do
+        [[ -x "$p" ]] && return 0
+      done
+      command -v chrome.exe >/dev/null 2>&1 \
+        || command -v msedge.exe >/dev/null 2>&1
+      ;;
+  esac
+}
+
+# ---------------------------------------------------------------
+#  局域网 IP（macOS / Linux / Windows）
+# ---------------------------------------------------------------
 lan_ip() {
   local ip=""
-  if command -v ipconfig >/dev/null 2>&1; then
-    ip="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)"
-  fi
-  if [[ -z "$ip" ]] && command -v hostname >/dev/null 2>&1; then
-    ip="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
-  fi
+  case "$OS" in
+    macos)
+      ip="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)"
+      ;;
+    linux|wsl)
+      ip="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+      # 兜底：解析路由表
+      if [[ -z "$ip" ]]; then
+        ip="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '/src/ {print $7; exit}' || true)"
+      fi
+      ;;
+    windows)
+      # Git Bash / MSYS：ipconfig 输出形如
+      #   Wireless LAN adapter Wi-Fi:
+      #      IPv4 Address. . . . : 192.168.1.10
+      ip="$(ipconfig 2>/dev/null \
+        | awk '/IPv4/ {gsub(/[^0-9.]/, "", $NF); print $NF; exit}' \
+        || true)"
+      # 兜底：cmd /c ipconfig
+      if [[ -z "$ip" ]] && command -v cmd.exe >/dev/null 2>&1; then
+        ip="$(cmd.exe //c "ipconfig" 2>/dev/null \
+          | awk '/IPv4/ {gsub(/[^0-9.]/, "", $NF); print $NF; exit}' \
+          || true)"
+      fi
+      ;;
+  esac
   printf '%s' "$ip"
 }
 
-chrome_ok() {
-  [[ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]] && return 0
-  command -v google-chrome >/dev/null 2>&1 && return 0
-  command -v google-chrome-stable >/dev/null 2>&1 && return 0
-  command -v chromium >/dev/null 2>&1 && return 0
-  command -v chromium-browser >/dev/null 2>&1 && return 0
-  return 1
-}
-
+# ---------------------------------------------------------------
+#  OpenCLI 安装 / 探测
+# ---------------------------------------------------------------
 resolve_opencli_bin() {
   local main cli
   main="$OPENCLI_HOME/node_modules/@jackwener/opencli/dist/src/main.js"
@@ -155,7 +229,7 @@ ensure_opencli() {
   PATH_VALUE="${NODE_DIR}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
   if chrome_ok; then
-    green "已找到 Chrome。"
+    green "已找到 Chrome（${OS}）。"
   else
     dim "没找到 Chrome。B 站 / 小红书 / 抖音 / YouTube / X 会抓不到；Hacker News 仍可用。"
   fi
@@ -170,6 +244,9 @@ ensure_opencli() {
   verify_opencli
 }
 
+# ---------------------------------------------------------------
+#  卸载
+# ---------------------------------------------------------------
 uninstall_macos() {
   local uid plist
   uid="$(id -u)"
@@ -185,15 +262,29 @@ uninstall_linux() {
   systemctl --user daemon-reload 2>/dev/null || true
 }
 
+uninstall_windows() {
+  # Windows 下 Git Bash / WSL 调 schtasks（不能 require admin，schtasks /create /tn Crossfeed 只需要当前用户）
+  if command -v schtasks.exe >/dev/null 2>&1; then
+    schtasks.exe //Delete //TN "Crossfeed" //F 2>/dev/null || \
+      schtasks //Delete //TN "Crossfeed" //F 2>/dev/null || true
+  elif command -v schtasks >/dev/null 2>&1; then
+    schtasks /Delete /TN "Crossfeed" /F 2>/dev/null || true
+  fi
+}
+
 do_uninstall() {
-  case "$(uname -s)" in
-    Darwin) uninstall_macos ;;
-    Linux) uninstall_linux ;;
+  case "$OS" in
+    macos)             uninstall_macos ;;
+    linux|wsl)         uninstall_linux ;;
+    windows)           uninstall_windows ;;
     *) red "未支持的系统：$(uname -s)"; exit 1 ;;
   esac
   green "已卸载本机服务。OpenCLI 和 ~/.opencli 登录态还在。"
 }
 
+# ---------------------------------------------------------------
+#  安装 / 启动（macOS / Linux / Windows）
+# ---------------------------------------------------------------
 if [[ "${1:-}" == "--uninstall" || "${1:-}" == "uninstall" ]]; then
   do_uninstall
   exit 0
@@ -205,6 +296,13 @@ if [[ "${1:-}" == "--opencli" || "${1:-}" == "opencli" ]]; then
 fi
 
 ensure_opencli
+
+NO_AUTOSTART=0
+for arg in "$@"; do
+  case "$arg" in
+    --no-autostart) NO_AUTOSTART=1 ;;
+  esac
+done
 
 echo "==> npm install"
 npm install
@@ -317,10 +415,65 @@ EOF
   echo "journalctl --user -u crossfeed -f"
 }
 
+install_windows() {
+  # Windows 下：用 schtasks 注册当前用户登录时启动（不需要管理员权限）
+  # 任务名：Crossfeed，工作目录：${ROOT}
+  # 日志：${LOCALAPPDATA}\Crossfeed\crossfeed.log
+  local task_name="Crossfeed"
+  local log_dir_win
+  local root_win
+
+  if command -v cmd.exe >/dev/null 2>&1; then
+    log_dir_win="$(cmd.exe //c "echo %LOCALAPPDATA%\Crossfeed" 2>/dev/null | tr -d '\r' | tail -1)"
+    root_win="$(cmd.exe //c "echo ${ROOT}" 2>/dev/null | tr -d '\r' | tail -1)"
+    node_win="$(cmd.exe //c "where node" 2>/dev/null | tr -d '\r' | head -1)"
+  else
+    log_dir_win="${LOCALAPPDATA:-${USERPROFILE}/AppData/Local}/Crossfeed"
+    root_win="${ROOT}"
+    node_win="${NODE_BIN}"
+  fi
+
+  # 删旧的
+  uninstall_windows
+
+  # 注册新任务
+  local tr_cmd="cd /d \"${root_win}\" && \"${node_win}\" \"${root_win}\\backend\\dist\\server.js\""
+  # 写一个 start wrapper（避免转义噩梦）
+  mkdir -p "$ROOT"
+  local wrapper="$ROOT/start-service.bat"
+  cat > "$wrapper" <<EOF
+@echo off
+set NODE_ENV=production
+set CROSSFEED_HOST=${HOST}
+set CROSSFEED_PORT=${PORT}
+set CROSSFEED_OPENCLI_BIN=${OPENCLI_BIN}
+cd /d "${root_win}"
+"${node_win}" "${root_win}\\backend\\dist\\server.js" > "${log_dir_win//\\/\/}\\crossfeed.log" 2>&1
+EOF
+
+  if command -v schtasks.exe >/dev/null 2>&1; then
+    schtasks.exe //Create //TN "${task_name}" \
+      //TR "\"${wrapper}\"" \
+      //SC ONLOGON //RL LIMITED //F >/dev/null
+  else
+    schtasks /Create /TN "${task_name}" \
+      /TR "\"${wrapper}\"" \
+      /SC ONLOGON /RL LIMITED /F >/dev/null
+  fi
+
+  # 立即跑一次
+  if command -v schtasks.exe >/dev/null 2>&1; then
+    schtasks.exe //Run //TN "${task_name}" 2>/dev/null || true
+  fi
+
+  echo "${log_dir_win}\\crossfeed.log"
+}
+
 LOG_HINT=""
-case "$(uname -s)" in
-  Darwin) LOG_HINT="$(install_macos)" ;;
-  Linux) LOG_HINT="$(install_linux)" ;;
+case "$OS" in
+  macos)             LOG_HINT="$(install_macos)" ;;
+  linux|wsl)         LOG_HINT="$(install_linux)" ;;
+  windows)           LOG_HINT="$(install_windows)" ;;
   *)
     red "未支持的系统：$(uname -s)。可以手动：NODE_ENV=production npm run start"
     exit 1

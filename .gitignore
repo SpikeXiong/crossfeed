@@ -40,3 +40,9 @@ backend/data/
 *.db
 *.db-wal
 *.db-shm
+
+# Release 临时 staging
+release-staging/
+
+# OpenCLI user runtime（独立于本仓库）
+.opencli/

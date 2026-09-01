@@ -12,14 +12,15 @@
 
 <div align="center">
 
+[![Release](https://img.shields.io/github/v/release/SpikeXiong/crossfeed?style=for-the-badge&logo=github&logoColor=white&color=blue)](https://github.com/SpikeXiong/crossfeed/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/SpikeXiong/crossfeed/ci.yml?style=for-the-badge&logo=github-actions&logoColor=white&label=CI)](https://github.com/SpikeXiong/crossfeed/actions/workflows/ci.yml)
 [![OpenCLI](https://img.shields.io/badge/Powered%20by-OpenCLI-00ADD8?style=for-the-badge&logo=powershell&logoColor=white)](https://github.com/jackwener/OpenCLI)
 [![Node](https://img.shields.io/badge/Node.js-%E2%89%A521-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Backend](https://img.shields.io/badge/Hono-Backend-E36002?style=for-the-badge&logo=hono&logoColor=white)](https://hono.dev)
 [![Frontend](https://img.shields.io/badge/Vite+React-Frontend-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
 [![Storage](https://img.shields.io/badge/SQLite-Storage-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
-[![Style](https://img.shields.io/badge/Tailwind-Styling-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
-[![Platform](https://img.shields.io/badge/macOS%20%7C%20Linux-Platform-555555?style=for-the-badge&logo=linux&logoColor=white)](#)
+[![Platform](https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-555555?style=for-the-badge&logo=windows&logoColor=white)](#)
 
 </div>
 
@@ -41,9 +42,24 @@
 - SQLite 缓存信息流、翻译、搜索历史和运行时配置（默认 TTL 5 小时）。
 - 需要登录的站走本机 Chrome 的 OpenCLI persistent session。
 
+## 下载
+
+> **想跳过 npm 构建？** 直接从 [Releases](https://github.com/SpikeXiong/crossfeed/releases) 下载对应平台的 zip，解压即跑（每个平台独立构建，已含 `backend/dist` + `frontend/dist` + 生产 `node_modules`，不含 OpenCLI；首次跑会自装）。
+
+| 平台 | zip | 解压后启动 |
+| :--- | :--- | :--- |
+| Linux x64 | `crossfeed-v*-linux-x64.tar.gz` | `./start.sh` 或 `./install.sh` |
+| macOS x64（Intel） | `crossfeed-v*-macos-x64.zip` | `./start.sh` 或 `./install.sh` |
+| macOS ARM64（Apple Silicon） | `crossfeed-v*-macos-arm64.zip` | `./start.sh` 或 `./install.sh` |
+| Windows x64 | `crossfeed-v*-windows-x64.zip` | 双击 `start.bat`，或 `.\deploy\install.ps1` |
+
+每个 release 都由 GitHub Actions 跨平台独立构建（参见 [.github/workflows/release.yml](.github/workflows/release.yml)），未签名的 `.zip` / `.tar.gz` 直接下载即可。
+
 ## 快速开始
 
-需要 **Node.js ≥ 21**、npm、本机 **Chrome**。macOS / Linux。
+需要 **Node.js ≥ 21**、npm、本机 **Chrome**。macOS / Linux / Windows。
+
+### macOS / Linux
 
 ```bash
 git clone https://github.com/SpikeXiong/crossfeed.git
@@ -53,13 +69,30 @@ cd crossfeed
 
 或 `make deploy`。同一条命令会安装 [OpenCLI](https://github.com/jackwener/OpenCLI)、同步本仓库 Adapter、构建，并注册开机自启（macOS LaunchAgent / Linux systemd 用户服务）。
 
+### Windows（PowerShell）
+
+```powershell
+git clone https://github.com/SpikeXiong/crossfeed.git
+cd crossfeed
+.\deploy\install.ps1
+```
+
+> 用 Git Bash / WSL 也可以直接跑 `./deploy/install.sh`（脚本会检测到 `MINGW*` / `MSYS*` / `CYGWIN*` / WSL 并走 Windows 路径）。
+
+同一条命令会安装 OpenCLI、构建产物、注册 **Windows 任务计划**（`Crossfeed` 任务，登录时启动，不需要管理员权限），日志写到 `%LOCALAPPDATA%\Crossfeed\crossfeed.log`。
+
+### 访问入口
+
 | | |
 |---|---|
 | 本机（改站点、登录） | http://127.0.0.1:4000 |
 | 手机（同一 Wi-Fi） | `http://<电脑IP>:4000` |
 | 日志（macOS） | `~/Library/Logs/crossfeed.log` |
-| 只装抓取 | `./deploy/install.sh --opencli` |
-| 卸载服务 | `./deploy/install.sh --uninstall`（**不动** OpenCLI 和登录 cookie） |
+| 日志（Linux） | `journalctl --user -u crossfeed -f` |
+| 日志（Windows） | `%LOCALAPPDATA%\Crossfeed\crossfeed.log` |
+| 只装抓取 | `./deploy/install.sh --opencli` / `.\deploy\install.ps1 -OpenCliOnly` |
+| 卸载服务 | `./deploy/install.sh --uninstall` / `.\deploy\install.ps1 -Uninstall`（**不动** OpenCLI 和登录 cookie） |
+| 装但不注册自启 | `./deploy/install.sh --no-autostart` / `.\deploy\install.ps1 -NoAutostart` |
 
 没装 Chrome 时 Hacker News 还能抓，其它站不行。需要登录的站请用 **localhost:4000** 打开设置扫码。`opencli doctor` 可自查浏览器。
 
@@ -69,6 +102,15 @@ cd crossfeed
 npm install
 npm run build
 NODE_ENV=production npm run start    # 一个进程，http://0.0.0.0:4000
+```
+
+或 Windows：
+
+```cmd
+npm install
+npm run build
+set NODE_ENV=production
+node backend\dist\server.js
 ```
 
 开发（Vite `:3000` + API `:4000`）：
@@ -312,11 +354,18 @@ GET /api/feed?page=2
 ├── backend/                 # Hono + SQLite
 ├── frontend/                # Vite + React
 ├── deploy/
-│   ├── install.sh           # 一键：OpenCLI + 构建 + 开机自启
+│   ├── install.sh           # 一键（macOS / Linux / Windows Git Bash）
+│   ├── install.ps1          # 一键（Windows PowerShell）
 │   ├── opencli-clis/        # 覆盖 / 新增的 Adapter
 │   ├── nginx.conf
 │   ├── deploy-fly.sh
 │   └── deploy-vercel.sh
+├── scripts/
+│   └── build-release.sh     # 跨平台 release zip 打包
+├── start.sh / start.bat / start.ps1   # 解压后双击启动
+├── .github/workflows/
+│   ├── ci.yml               # push / PR 跑 test + build
+│   └── release.yml          # 推 v* tag 跨平台打 zip + 发 release
 ├── docs/opencli-adapters.md
 ├── Dockerfile.backend
 ├── docker-compose.yml
@@ -343,6 +392,7 @@ Crossfeed 站在这些开源项目之上。没有它们就没有这个仓库。
 | [MyMemory](https://mymemory.translated.net/) / [LibreTranslate](https://github.com/LibreTranslate/LibreTranslate) | 可选免费翻译 |
 | [Caddy](https://github.com/caddyserver/caddy) / [Nginx](https://nginx.org/) | 反代与 HTTPS |
 | Node.js 内置 [test runner](https://nodejs.org/api/test.html) + [tsx](https://github.com/privatenumber/tsx) | 后端测试 |
+| [GitHub Actions](https://github.com/features/actions) | 跨平台 CI + Release 打包 |
 
 各源站点（哔哩哔哩、微博、知乎、抖音、小红书、YouTube、X、Hacker News）的数据和登录态属于对应平台，本项目只在你的机器上代为拉取，供个人阅读。
 

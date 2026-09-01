@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build ${{ matrix.target.label }}
+    needs: prepare
+    runs-on: ${{ matrix.target.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { os: ubuntu-latest,    label: linux-x64,    archive: tar.gz }
+          - { os: macos-latest,     label: macos-x64,    archive: zip }
+          - { os: macos-13,         label: macos-arm64,  archive: zip }
+          - { os: windows-latest,   label: windows-x64,  archive: zip }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        shell: bash
+        run: npm ci
+
+      - name: Build
+        shell: bash
+        run: npm run build
+
+      - name: Stage release (omit devDeps)
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/build-release.sh \
+            --version "${GITHUB_REF_NAME}" \
+            --target "${{ matrix.target.label }}" \
+            --archive "${{ matrix.target.archive }}" \
+            --stage release-staging
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: crossfeed-${{ matrix.target.label }}
+          path: release-staging/crossfeed-*.${{ matrix.target.archive }}
+          if-no-files-found: error
+          retention-days: 14
+
+  prepare:
+    name: prepare version metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      changelog: ${{ steps.v.outputs.changelog }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: v
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          # 简单 changelog：从上一个 tag 到当前之间所有 commit 标题
+          PREV_TAG="$(git tag --sort=-version:refname | grep -v "^${VERSION}$" | head -1 || true)"
+          if [ -n "${PREV_TAG}" ]; then
+            RANGE="${PREV_TAG}..${VERSION}"
+          else
+            RANGE="${VERSION}"
+          fi
+          CHANGELOG="$(git log "${RANGE}" --pretty=format:'- %s' --no-merges || true)"
+          {
+            echo "changelog<<EOF"
+            echo "$CHANGELOG"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: publish release
+    needs: [build, prepare]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        shell: bash
+        run: ls -la artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ needs.prepare.outputs.version }}
+          generate_release_notes: false
+          body: |
+            ## ${{ needs.prepare.outputs.version }}
+
+            解压即跑。包含 backend/dist + frontend/dist + 生产 node_modules + 启动脚本。
+
+            **使用步骤**（以 `crossfeed-v0.1.0-macos-x64.zip` 为例）：
+            1. 下载对应平台的 zip
+            2. 解压到任意目录
+            3. macOS / Linux：终端跑 `./install.sh`（或 `./start.sh` 直接启动）
+            4. Windows：PowerShell 跑 `.\deploy\install.ps1`（或双击 `start.bat` 直接启动）
+
+            **改动**：
+            ${{ needs.prepare.outputs.changelog }}
+
+            **要求**：Node.js ≥ 21（start.sh / start.bat 会自己探测）、本机 Chrome / Edge。
+          files: |
+            artifacts/**/*
+          draft: false
+          prerelease: ${{ contains(github.ref, '-') }}
