@@ -114,6 +114,7 @@ if not data.startswith(b"\xef\xbb\xbf"):
 PY
 }
 ensure_utf8_bom "$STAGE_DIR/deploy/install.ps1"
+ensure_utf8_bom "$STAGE_DIR/deploy/cleanup.ps1"
 ensure_utf8_bom "$STAGE_DIR/start.ps1"
 
 # 5) data 目录占位
@@ -134,11 +135,13 @@ Crossfeed ${VERSION}
     ./install.sh                 # 一键：装 OpenCLI + 同步 Adapter + 注册开机自启
     ./start.sh                   # 只启动，不注册自启
     ./deploy/install.sh --opencli  # 只装 OpenCLI，不动系统服务
+    ./deploy/cleanup.sh            # 清掉 ~/.opencli 和全局 OpenCLI
 
   Windows（推荐双击 .bat 包装器，绕开 PowerShell Execution Policy）：
     .\deploy\install.bat         # 一键：装 OpenCLI + 同步 Adapter + 注册任务计划
     .\start.bat                  # 只启动（不需 install）
     .\deploy\install.bat -OpenCliOnly   # 只装 OpenCLI
+    .\deploy\cleanup.bat                # 清掉 ~/.opencli 和全局 OpenCLI（坏掉的 junction 请先跑这个）
 
   Windows（如果机器 PowerShell policy 已放宽到 RemoteSigned 或更低）：
     .\deploy\install.ps1         # 与 .bat 等价（脚本头部已自带 Bypass）

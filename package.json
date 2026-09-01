@@ -1,6 +1,6 @@
 {
   "name": "crossfeed",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "Crossfeed · 反茧房信息流 — 跨平台 AI 信息流",
   "workspaces": ["backend", "frontend"],
