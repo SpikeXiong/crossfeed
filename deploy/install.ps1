@@ -1,4 +1,5 @@
-# Crossfeed · Windows PowerShell 一键安装
+﻿# Crossfeed · Windows PowerShell 一键安装
+# Encoding: UTF-8 with BOM (Windows PowerShell 5.1 无 BOM 会按系统 ANSI/GBK 读，中文注释会炸解析)
 # 用法（在解压后的目录，用 PowerShell 跑）：
 #   .\deploy\install.ps1                       全套（含开机自启）
 #   .\deploy\install.ps1 -OpenCliOnly          只装 OpenCLI + Adapter
@@ -14,7 +15,7 @@ param(
   [switch]$Uninstall,
   [switch]$NoAutostart,
   [int]$Port = 4000,
-  [string]$Host = "0.0.0.0"
+  [string]$BindHost = "0.0.0.0"
 )
 
 # 自身防御：临时对本进程解除 Execution Policy（不影响系统/用户级 policy）。
@@ -212,12 +213,11 @@ function Install-Service {
   if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
   $wrapper = Join-Path $Root "start-service.bat"
 
-  # 用字符串数组而不是 here-string：避免 PS 5.1 在缩进 here-string 解析上的兼容性问题
-  # （`@"..."@` 起始行如果带缩进，部分 PS 5.1 build 会把 `@"` 当 `@(` array 起始报错）
+  # Use a string array (not a here-string): PS 5.1 can misparse indented here-string openers.
   $lines = @(
     '@echo off',
     'set NODE_ENV=production',
-    ('set CROSSFEED_HOST=' + $Host),
+    ('set CROSSFEED_HOST=' + $BindHost),
     ('set CROSSFEED_PORT=' + $Port),
     ('set CROSSFEED_OPENCLI_BIN=' + $OpenCliBin),
     ('cd /d "' + $Root + '"'),

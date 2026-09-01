@@ -1,5 +1,6 @@
 @echo off
-REM Crossfeed · Windows 安装包装器（绕开 PowerShell Execution Policy 拦截）
-REM 双击运行，或在 cmd / PowerShell 里 .\deploy\install.bat
-REM 内部用 -ExecutionPolicy Bypass 调 install.ps1（不影响系统 policy）
+REM Crossfeed Windows installer wrapper (bypasses PowerShell Execution Policy).
+REM Double-click, or run: .\deploy\install.bat
+REM Invokes install.ps1 with -ExecutionPolicy Bypass (does not change system policy).
+REM This .bat file is ASCII-only so cmd.exe on Chinese Windows does not misparse comments.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1" %*

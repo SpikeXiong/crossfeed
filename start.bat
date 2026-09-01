@@ -1,6 +1,7 @@
 @echo off
-REM Crossfeed · Windows 启动脚本（cmd / 双击）
-REM 用法：双击 start.bat，或在 cmd / PowerShell 里 .\start.bat
+REM Crossfeed Windows launcher (cmd / double-click).
+REM Double-click start.bat, or run: .\start.bat
+REM This .bat file is ASCII-only so cmd.exe on Chinese Windows does not misparse comments.
 
 setlocal
 cd /d "%~dp0"
@@ -9,7 +10,7 @@ set "CROSSFEED_PORT=4000"
 set "CROSSFEED_HOST=0.0.0.0"
 set "NODE_ENV=production"
 
-REM 探测 OPENCLI_BIN
+REM Resolve OPENCLI_BIN
 if not defined CROSSFEED_OPENCLI_BIN (
   if exist "%USERPROFILE%\.opencli\node_modules\@jackwener\opencli\dist\src\main.js" (
     set "CROSSFEED_OPENCLI_BIN=%USERPROFILE%\.opencli\node_modules\@jackwener\opencli\dist\src\main.js"
@@ -27,11 +28,11 @@ if not defined CROSSFEED_OPENCLI_BIN (
 if not exist "data" mkdir data
 
 echo ===============================================
-echo  Crossfeed · 本机信息流
-echo  端口  : %CROSSFEED_HOST%:%CROSSFEED_PORT%
-echo  后端  : backend\dist\server.js
-echo  日志  : data\crossfeed.log
-echo  停止  : Ctrl+C，或结束 node 进程
+echo  Crossfeed
+echo  Port : %CROSSFEED_HOST%:%CROSSFEED_PORT%
+echo  App  : backend\dist\server.js
+echo  Log  : data\crossfeed.log
+echo  Stop : Ctrl+C, or end the node process
 echo ===============================================
 
 node "%~dp0backend\dist\server.js"

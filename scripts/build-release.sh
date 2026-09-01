@@ -100,6 +100,22 @@ cp "$ROOT/deploy/install.bat" "$STAGE_DIR/deploy/" 2>/dev/null || true  # Window
 cp -R "$ROOT/deploy"    "$STAGE_DIR/deploy"
 cp "$ROOT/README.md"    "$STAGE_DIR/"
 
+# PowerShell 5.1 on Chinese Windows reads scripts as GBK unless they have a UTF-8 BOM.
+ensure_utf8_bom() {
+  python3 - "$1" <<'PY'
+import sys
+from pathlib import Path
+p = Path(sys.argv[1])
+if not p.is_file():
+    raise SystemExit(0)
+data = p.read_bytes()
+if not data.startswith(b"\xef\xbb\xbf"):
+    p.write_bytes(b"\xef\xbb\xbf" + data)
+PY
+}
+ensure_utf8_bom "$STAGE_DIR/deploy/install.ps1"
+ensure_utf8_bom "$STAGE_DIR/start.ps1"
+
 # 5) data 目录占位
 mkdir -p "$STAGE_DIR/data"
 touch "$STAGE_DIR/data/.gitkeep"

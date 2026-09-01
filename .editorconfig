@@ -1,0 +1,15 @@
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+
+# Windows PowerShell 5.1 reads UTF-8 only when the file has a BOM.
+# Without it, Chinese Windows (GBK) treats comments as code.
+[*.ps1]
+charset = utf-8-bom
+
+# cmd.exe on Chinese Windows misparses UTF-8 comments. Keep these ASCII.
+[*.{bat,cmd}]
+charset = latin1
+end_of_line = crlf
