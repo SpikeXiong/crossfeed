@@ -58,7 +58,7 @@
 
 ## 快速开始
 
-需要 **Node.js ≥ 21**、npm、本机 **Chrome**。macOS / Linux / Windows。
+需要 **Node.js ≥ 21**、npm、本机 **Chrome 或 Edge**，以及 [OpenCLI 浏览器扩展](https://chromewebstore.google.com/detail/opencli/ildkmabpimmkaediidaifkhjpohdnifk)（B 站 / 微博 / 知乎 / 小红书 / 抖音 / YouTube 等 COOKIE 源要用；Hacker News 不用）。macOS / Linux / Windows。
 
 ### macOS / Linux
 
@@ -104,7 +104,7 @@ deploy\install.bat
 | 卸载服务 | `./deploy/install.sh --uninstall` / `deploy\install.bat -Uninstall`（**不动** OpenCLI 和登录 cookie） |
 | 装但不注册自启 | `./deploy/install.sh --no-autostart` / `deploy\install.bat -NoAutostart` |
 
-没装 Chrome 时 Hacker News 还能抓，其它站不行。需要登录的站请用 **localhost:4000** 打开设置扫码。`opencli doctor` 可自查浏览器。
+没装 Chrome / 插件时 Hacker News 还能抓，其它站不行。COOKIE 源需要本机浏览器里的 **[OpenCLI 扩展](https://chromewebstore.google.com/detail/opencli/ildkmabpimmkaediidaifkhjpohdnifk)**（Chrome / Edge 均可）。需要登录的站请用 **localhost:4000** 打开设置扫码。`opencli doctor` 可自查浏览器桥是否通。
 
 不想开机自启：
 
@@ -131,7 +131,7 @@ npm install && npm run dev
 
 ## 部署
 
-抓取依赖 **本机 OpenCLI + Chrome**。云主机、纯容器、Vercel 上都没有你的浏览器登录态，信息流会空。真正能「一键」的只有：这台有 Chrome 的机器上跑一个进程。
+抓取依赖 **本机 OpenCLI + Chrome/Edge + [OpenCLI 扩展](https://chromewebstore.google.com/detail/opencli/ildkmabpimmkaediidaifkhjpohdnifk)**。云主机、纯容器、Vercel 上都没有你的浏览器登录态，信息流会空。真正能「一键」的只有：这台有浏览器的机器上跑一个进程。
 
 生产模式下后端托管 `frontend/dist`，页面和 API 都在 **4000**。
 
@@ -242,6 +242,12 @@ opencli <site> <command> -f json
 ```
 
 官方 Adapter 来自 [jackwener/OpenCLI](https://github.com/jackwener/OpenCLI)（`@jackwener/opencli`）。`~/.opencli/clis/` 里的同名命令会覆盖官方包。一键脚本会装官方包，并把本仓库 `deploy/opencli-clis/` 同步过去。
+
+### 浏览器扩展
+
+COOKIE 源（B 站、微博、知乎、小红书、抖音、YouTube 等）要从本机浏览器会话里取 cookie，需要装 **[OpenCLI](https://chromewebstore.google.com/detail/opencli/ildkmabpimmkaediidaifkhjpohdnifk)** 扩展（Chrome 应用店；Edge 也可装 Chrome 扩展）。Hacker News 是 PUBLIC，不需要插件。
+
+装完后跑 `opencli doctor`，浏览器桥要绿。然后用 **http://127.0.0.1:4000** 打开设置，给需要登录的站扫码。
 
 ```bash
 ./deploy/install.sh --opencli
