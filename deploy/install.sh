@@ -19,6 +19,7 @@ OPENCLI_PKG="@jackwener/opencli"
 CLIS_BUNDLE="$ROOT/deploy/opencli-clis"
 OPENCLI_HOME="${OPENCLI_HOME:-$HOME/.opencli}"
 OPENCLI_BIN=""
+NODE_BIN=""
 
 red() { printf '\033[31m%s\033[0m\n' "$*"; }
 green() { printf '\033[32m%s\033[0m\n' "$*"; }
@@ -422,22 +423,21 @@ install_windows() {
   local task_name="Crossfeed"
   local log_dir_win
   local root_win
+  local node_win_path
 
   if command -v cmd.exe >/dev/null 2>&1; then
     log_dir_win="$(cmd.exe //c "echo %LOCALAPPDATA%\Crossfeed" 2>/dev/null | tr -d '\r' | tail -1)"
     root_win="$(cmd.exe //c "echo ${ROOT}" 2>/dev/null | tr -d '\r' | tail -1)"
-    node_win="$(cmd.exe //c "where node" 2>/dev/null | tr -d '\r' | head -1)"
+    node_win_path="$(cmd.exe //c "where node" 2>/dev/null | tr -d '\r' | head -1)"
   else
     log_dir_win="${LOCALAPPDATA:-${USERPROFILE}/AppData/Local}/Crossfeed"
     root_win="${ROOT}"
-    node_win="${NODE_BIN}"
+    node_win_path="${NODE_BIN}"
   fi
 
   # 删旧的
   uninstall_windows
 
-  # 注册新任务
-  local tr_cmd="cd /d \"${root_win}\" && \"${node_win}\" \"${root_win}\\backend\\dist\\server.js\""
   # 写一个 start wrapper（避免转义噩梦）
   mkdir -p "$ROOT"
   local wrapper="$ROOT/start-service.bat"
@@ -448,7 +448,7 @@ set CROSSFEED_HOST=${HOST}
 set CROSSFEED_PORT=${PORT}
 set CROSSFEED_OPENCLI_BIN=${OPENCLI_BIN}
 cd /d "${root_win}"
-"${node_win}" "${root_win}\\backend\\dist\\server.js" > "${log_dir_win//\\/\/}\\crossfeed.log" 2>&1
+"${node_win_path}" "${root_win}\\backend\\dist\\server.js" > "${log_dir_win//\\/\/}\\crossfeed.log" 2>&1
 EOF
 
   if command -v schtasks.exe >/dev/null 2>&1; then

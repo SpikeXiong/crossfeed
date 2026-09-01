@@ -1,0 +1,6 @@
+# shellcheck 配置：明确告诉 shellcheck 这是 bash（不是 POSIX sh）
+# 避免 SC2038/SC3001 等"用 bash 特性"的误报
+shell=bash
+
+# 忽略 'useless cat' 类风格警告（cat <<EOF 比 echo 更清晰）
+disable=SC2002,SC2086
