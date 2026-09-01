@@ -14,8 +14,8 @@ $env:NODE_ENV = "production"
 
 if (-not $env:CROSSFEED_OPENCLI_BIN) {
   $candidates = @(
-    (Join-Path $env:USERPROFILE ".opencli\node_modules\@jackwener\opencli\dist\src\main.js"),
-    (Join-Path $env:USERPROFILE ".opencli\node_modules\@jackwener\opencli\dist\cli.js")
+    (Join-Path $env:APPDATA "npm\node_modules\@jackwener\opencli\dist\src\main.js"),
+    (Join-Path $env:USERPROFILE ".opencli\runtime\node_modules\@jackwener\opencli\dist\src\main.js")
   )
   foreach ($p in $candidates) {
     if (Test-Path $p) {

@@ -15,7 +15,7 @@ cd "$ROOT"
 LABEL="com.crossfeed"
 PORT="${CROSSFEED_PORT:-4000}"
 HOST="${CROSSFEED_HOST:-0.0.0.0}"
-OPENCLI_PKG="@jackwener/opencli"
+OPENCLI_PKG="@jackwener/opencli@1.8.7"
 CLIS_BUNDLE="$ROOT/deploy/opencli-clis"
 OPENCLI_HOME="${OPENCLI_HOME:-$HOME/.opencli}"
 OPENCLI_BIN=""
@@ -123,15 +123,28 @@ lan_ip() {
 # ---------------------------------------------------------------
 #  OpenCLI 安装 / 探测
 # ---------------------------------------------------------------
+opencli_main_at() {
+  local root="$1"
+  if [[ -f "$root/dist/src/main.js" ]]; then
+    printf '%s' "$root/dist/src/main.js"
+  elif [[ -f "$root/dist/cli.js" ]]; then
+    printf '%s' "$root/dist/cli.js"
+  fi
+}
+
 resolve_opencli_bin() {
-  local main cli
-  main="$OPENCLI_HOME/node_modules/@jackwener/opencli/dist/src/main.js"
-  cli="$OPENCLI_HOME/node_modules/@jackwener/opencli/dist/cli.js"
-  if [[ -f "$main" ]]; then
-    OPENCLI_BIN="$main"
-  elif [[ -f "$cli" ]]; then
-    OPENCLI_BIN="$cli"
-  elif command -v opencli >/dev/null 2>&1; then
+  # Do not launch via ~/.opencli/node_modules/@jackwener/opencli — OpenCLI replaces
+  # that path with a symlink to PACKAGE_ROOT. Installing the real package there
+  # makes list() delete it and symlink the path onto itself.
+  local prefix main
+  prefix="$(npm prefix -g 2>/dev/null || true)"
+  if [[ -n "$prefix" ]]; then
+    main="$(opencli_main_at "$prefix/node_modules/@jackwener/opencli")"
+    if [[ -n "$main" ]]; then OPENCLI_BIN="$main"; return; fi
+  fi
+  main="$(opencli_main_at "$OPENCLI_HOME/runtime/node_modules/@jackwener/opencli")"
+  if [[ -n "$main" ]]; then OPENCLI_BIN="$main"; return; fi
+  if command -v opencli >/dev/null 2>&1; then
     OPENCLI_BIN="$(command -v opencli)"
   else
     OPENCLI_BIN=""
@@ -143,11 +156,37 @@ install_opencli_pkg() {
   if [[ ! -f "$OPENCLI_HOME/package.json" ]]; then
     printf '%s\n' '{"name":"opencli-user-runtime","private":true,"type":"module"}' > "$OPENCLI_HOME/package.json"
   fi
-  echo "==> 安装 ${OPENCLI_PKG} → ${OPENCLI_HOME}"
-  (cd "$OPENCLI_HOME" && npm install --no-fund --no-audit "$OPENCLI_PKG")
-  # 终端里也能直接打 opencli doctor；失败不挡（~/.opencli 里已有入口）
-  npm install -g --no-fund --no-audit "$OPENCLI_PKG" >/dev/null 2>&1 || \
-    dim "全局 npm 没装上 opencli 命令，不影响：后端会走 ${OPENCLI_HOME}"
+  echo "==> 安装 ${OPENCLI_PKG}（全局；不要装进 ~/.opencli 本体）"
+  local root="" prefix
+  if npm install -g --no-fund --no-audit "$OPENCLI_PKG"; then
+    prefix="$(npm prefix -g 2>/dev/null || true)"
+    if [[ -n "$prefix" && -f "$prefix/node_modules/@jackwener/opencli/dist/src/main.js" ]]; then
+      root="$prefix/node_modules/@jackwener/opencli"
+    fi
+  fi
+  if [[ -z "$root" ]]; then
+    dim "全局安装没有入口，改装到 ${OPENCLI_HOME}/runtime"
+    mkdir -p "$OPENCLI_HOME/runtime"
+    if [[ ! -f "$OPENCLI_HOME/runtime/package.json" ]]; then
+      printf '%s\n' '{"name":"opencli-user-runtime","private":true,"type":"module"}' > "$OPENCLI_HOME/runtime/package.json"
+    fi
+    (cd "$OPENCLI_HOME/runtime" && npm install --no-fund --no-audit "$OPENCLI_PKG")
+    root="$OPENCLI_HOME/runtime/node_modules/@jackwener/opencli"
+  fi
+  if [[ ! -f "$root/dist/src/main.js" ]]; then
+    red "OpenCLI 包不完整：${root}"
+    exit 1
+  fi
+  # Leftover local install / self-symlink from older Crossfeed installers.
+  local shim="$OPENCLI_HOME/node_modules/@jackwener/opencli"
+  if [[ -L "$shim" ]]; then
+    rm -f "$shim"
+  elif [[ -d "$shim" ]]; then
+    rm -rf "$shim"
+  elif [[ -e "$shim" ]]; then
+    rm -f "$shim"
+  fi
+  OPENCLI_BIN="$root/dist/src/main.js"
 }
 
 sync_adapters() {

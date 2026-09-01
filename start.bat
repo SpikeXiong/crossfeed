@@ -10,12 +10,12 @@ set "CROSSFEED_PORT=4000"
 set "CROSSFEED_HOST=0.0.0.0"
 set "NODE_ENV=production"
 
-REM Resolve OPENCLI_BIN
+REM Resolve OPENCLI_BIN (real package, not the ~/.opencli junction)
 if not defined CROSSFEED_OPENCLI_BIN (
-  if exist "%USERPROFILE%\.opencli\node_modules\@jackwener\opencli\dist\src\main.js" (
-    set "CROSSFEED_OPENCLI_BIN=%USERPROFILE%\.opencli\node_modules\@jackwener\opencli\dist\src\main.js"
-  ) else if exist "%USERPROFILE%\.opencli\node_modules\@jackwener\opencli\dist\cli.js" (
-    set "CROSSFEED_OPENCLI_BIN=%USERPROFILE%\.opencli\node_modules\@jackwener\opencli\dist\cli.js"
+  if exist "%APPDATA%\npm\node_modules\@jackwener\opencli\dist\src\main.js" (
+    set "CROSSFEED_OPENCLI_BIN=%APPDATA%\npm\node_modules\@jackwener\opencli\dist\src\main.js"
+  ) else if exist "%USERPROFILE%\.opencli\runtime\node_modules\@jackwener\opencli\dist\src\main.js" (
+    set "CROSSFEED_OPENCLI_BIN=%USERPROFILE%\.opencli\runtime\node_modules\@jackwener\opencli\dist\src\main.js"
   ) else (
     for /f "delims=" %%i in ('where opencli 2^>nul') do (
       set "CROSSFEED_OPENCLI_BIN=%%i"

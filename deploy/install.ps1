@@ -36,10 +36,11 @@ $LogDir      = Join-Path $env:LOCALAPPDATA "Crossfeed"
 $LogFile     = Join-Path $LogDir "crossfeed.log"
 $NodeBin     = $null
 $NpmCmd      = $null
+$OpenCliRoot = $null
 
 # OpenCLI 适配器包（从仓库 deploy/opencli-clis/ 同步到 ~/.opencli/clis/）
 $ClisBundle  = Join-Path $Root "deploy\opencli-clis"
-$OpenCliPkg  = "@jackwener/opencli"
+$OpenCliPkg  = "@jackwener/opencli@1.8.7"
 
 # ---------------------------------------------------------------
 #  输出
@@ -103,6 +104,20 @@ function Write-Utf8NoBom {
   param([string]$Path, [string]$Text)
   $enc = New-Object System.Text.UTF8Encoding $false
   [System.IO.File]::WriteAllText($Path, $Text, $enc)
+}
+
+# Junction-safe delete: Remove-Item -Recurse on a Windows junction can wipe the target.
+function Remove-LinkOrDir {
+  param([string]$Path)
+  if (-not (Test-Path -LiteralPath $Path)) { return }
+  $item = Get-Item -LiteralPath $Path -Force
+  $reparse = [bool]($item.Attributes -band [IO.FileAttributes]::ReparsePoint)
+  if ($reparse) {
+    if ($item.PSIsContainer) { cmd.exe /c "rmdir `"$Path`"" | Out-Null }
+    else { Remove-Item -LiteralPath $Path -Force }
+  } else {
+    Remove-Item -LiteralPath $Path -Recurse -Force
+  }
 }
 
 # ---------------------------------------------------------------
@@ -184,11 +199,38 @@ function Assert-Node {
 # ---------------------------------------------------------------
 #  OpenCLI 安装
 # ---------------------------------------------------------------
+function Get-OpenCliMain {
+  param([string]$Root)
+  if (-not $Root) { return $null }
+  $main = Join-Path $Root "dist\src\main.js"
+  if (Test-Path -LiteralPath $main) { return $main }
+  $cli = Join-Path $Root "dist\cli.js"
+  if (Test-Path -LiteralPath $cli) { return $cli }
+  return $null
+}
+
+function Get-GlobalOpenCliRoot {
+  $prefix = Get-NativeStdout -File $script:NpmCmd -NativeArgs @("prefix", "-g")
+  $prefix = (([string]$prefix) -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 1)
+  $prefix = ([string]$prefix).Trim()
+  if (-not $prefix) { return $null }
+  return (Join-Path $prefix "node_modules\@jackwener\opencli")
+}
+
 function Resolve-OpenCliBin {
-  $main = Join-Path $OpenCliHome "node_modules\@jackwener\opencli\dist\src\main.js"
-  $cli  = Join-Path $OpenCliHome "node_modules\@jackwener\opencli\dist\cli.js"
-  if (Test-Path $main) { return $main }
-  if (Test-Path $cli)  { return $cli }
+  # Never launch via ~/.opencli/node_modules/@jackwener/opencli — OpenCLI will
+  # replace that path with a junction to PACKAGE_ROOT. If we installed the
+  # real files there, list() deletes them and junctions the path onto itself (ELOOP).
+  if ($script:OpenCliRoot) {
+    $hit = Get-OpenCliMain $script:OpenCliRoot
+    if ($hit) { return $hit }
+  }
+  $hit = Get-OpenCliMain (Get-GlobalOpenCliRoot)
+  if ($hit) { return $hit }
+  $hit = Get-OpenCliMain (Join-Path $OpenCliHome "runtime\node_modules\@jackwener\opencli")
+  if ($hit) { return $hit }
+  $cmd = Get-Command opencli.cmd -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Path }
   $cmd = Get-Command opencli -ErrorAction SilentlyContinue
   if ($cmd) { return $cmd.Path }
   return $null
@@ -208,17 +250,33 @@ function Install-OpenCliPkg {
       Write-Utf8NoBom $pkg $text
     }
   }
-  Write-Info "==> 安装 $OpenCliPkg → $OpenCliHome"
-  Push-Location $OpenCliHome
-  try {
-    Invoke-Npm -NpmArgs @("install", "--no-fund", "--no-audit", $OpenCliPkg) `
-      -FailLabel "npm install $OpenCliPkg → $OpenCliHome"
-  } finally { Pop-Location }
-  # 全局（失败不挡；后端走 ~/.opencli 入口）
+
+  Write-Info "==> 安装 $OpenCliPkg（全局，避免装进 ~/.opencli 后被自己 junction 掉）"
   Invoke-Npm -NpmArgs @("install", "-g", "--no-fund", "--no-audit", $OpenCliPkg)
-  if ($LASTEXITCODE -ne 0) {
-    Write-Warn "全局 npm 没装上 opencli 命令，不影响：后端会走 $OpenCliHome"
+  $root = Get-GlobalOpenCliRoot
+  $main = Get-OpenCliMain $root
+  if (-not $main) {
+    Write-Warn "全局安装没有入口，改装到 $OpenCliHome\runtime"
+    $runtime = Join-Path $OpenCliHome "runtime"
+    if (-not (Test-Path $runtime)) { New-Item -ItemType Directory -Path $runtime -Force | Out-Null }
+    $rtPkg = Join-Path $runtime "package.json"
+    if (-not (Test-Path $rtPkg)) { Write-Utf8NoBom $rtPkg $pkgJson }
+    Push-Location $runtime
+    try {
+      Invoke-Npm -NpmArgs @("install", "--no-fund", "--no-audit", $OpenCliPkg) `
+        -FailLabel "npm install $OpenCliPkg → $runtime"
+    } finally { Pop-Location }
+    $root = Join-Path $runtime "node_modules\@jackwener\opencli"
+    $main = Get-OpenCliMain $root
   }
+  if (-not $main) {
+    Write-Err "OpenCLI 包不完整：$root"
+    exit 1
+  }
+  $script:OpenCliRoot = $root
+
+  # Leftover local install / self-junction from older Crossfeed installers.
+  Remove-LinkOrDir (Join-Path $OpenCliHome "node_modules\@jackwener\opencli")
 }
 
 function Sync-Adapters {
@@ -228,7 +286,7 @@ function Sync-Adapters {
   }
   Write-Info "==> 同步 Adapter → $OpenCliHome\clis"
   $dst = Join-Path $OpenCliHome "clis"
-  if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }
+  Remove-LinkOrDir $dst
   New-Item -ItemType Directory -Path $dst -Force | Out-Null
   Copy-Item -Recurse -Force (Join-Path $ClisBundle "*") $dst
 }
@@ -251,7 +309,7 @@ function Get-NativeStdout {
   foreach ($item in @($raw)) {
     if ($item -is [System.Management.Automation.ErrorRecord]) {
       $msg = [string]$item
-      if ($msg) { Write-Warn $msg }
+      if ($msg -and ($msg -notmatch "Could not inspect YAML adapters")) { Write-Warn $msg }
     } else {
       $s = [string]$item
       if ($s) { [void]$lines.Add($s) }
@@ -263,11 +321,15 @@ function Get-NativeStdout {
 function Verify-OpenCli {
   $bin = Resolve-OpenCliBin
   if (-not $bin) {
-    Write-Err "OpenCLI 装完后仍找不到入口。看上面的 npm 输出，以及 $OpenCliHome\node_modules\@jackwener\opencli"
+    Write-Err "OpenCLI 装完后仍找不到入口。看全局 npm 或 $OpenCliHome\runtime"
     exit 1
   }
   Write-Info "==> 探测 Adapter 列表"
-  $out = Get-NativeStdout -File $script:NodeBin -NativeArgs @($bin, "list", "-f", "json")
+  if ($bin -like "*.js") {
+    $out = Get-NativeStdout -File $script:NodeBin -NativeArgs @($bin, "list", "-f", "json")
+  } else {
+    $out = Get-NativeStdout -File $bin -NativeArgs @("list", "-f", "json")
+  }
   $jsonish = $out -match '\[|\{'
   if (-not $jsonish) {
     Write-Err "opencli list 没有 JSON 输出。看：$bin"

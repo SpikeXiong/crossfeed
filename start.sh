@@ -15,8 +15,10 @@ export NODE_ENV="${NODE_ENV:-production}"
 if [[ -z "${CROSSFEED_OPENCLI_BIN:-}" ]]; then
   OPENCLI_HOME="${OPENCLI_HOME:-$HOME/.opencli}"
   for p in \
-    "$OPENCLI_HOME/node_modules/@jackwener/opencli/dist/src/main.js" \
-    "$OPENCLI_HOME/node_modules/@jackwener/opencli/dist/cli.js"; do
+    "$(npm prefix -g 2>/dev/null)/node_modules/@jackwener/opencli/dist/src/main.js" \
+    "$OPENCLI_HOME/runtime/node_modules/@jackwener/opencli/dist/src/main.js" \
+    "/opt/homebrew/lib/node_modules/@jackwener/opencli/dist/src/main.js" \
+    "/usr/local/lib/node_modules/@jackwener/opencli/dist/src/main.js"; do
     if [[ -f "$p" ]]; then
       export CROSSFEED_OPENCLI_BIN="$p"
       break

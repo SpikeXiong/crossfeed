@@ -34,9 +34,8 @@ function withXhsGate<T>(fn: () => Promise<T>): Promise<T> {
  *
  * 查找顺序（命中即返回）：
  *   1. 环境变量 CROSSFEED_OPENCLI_BIN（绝对路径，测试/排错用）
- *   2. $HOME/.opencli/node_modules/@jackwener/opencli/dist/src/main.js  ← 标准 npm 提取位置
- *   3. $HOME/.opencli/node_modules/@jackwener/opencli/dist/cli.js       ← 旧版兼容
- *   4. 'opencli'（fallback：依赖 PATH 里有 bin 链接或 alias）
+ *   2. 全局 npm / ~/.opencli/runtime 里的真实包（不要走 ~/.opencli/node_modules 的 junction）
+ *   3. 'opencli'（fallback：PATH）
  *
  * 结果在第一次解析后缓存，避免每次 spawn 都走文件系统。
  */
@@ -59,12 +58,24 @@ export function resolveOpenCliBin(): string {
     return _resolvedBin;
   }
 
-  // 2-3) 用户目录下的 npm 提取位置（@jackwener/opencli@1.x 的 main 入口）
+  // 2) 全局 npm 或 ~/.opencli/runtime 里的真实包（不要走 ~/.opencli/node_modules 的 junction）
   const home = homedir();
-  const candidates = [
-    join(home, '.opencli', 'node_modules', '@jackwener', 'opencli', 'dist', 'src', 'main.js'),
-    join(home, '.opencli', 'node_modules', '@jackwener', 'opencli', 'dist', 'cli.js'),
-  ];
+  const roots: string[] = [];
+  if (process.env.APPDATA) {
+    roots.push(join(process.env.APPDATA, 'npm', 'node_modules', '@jackwener', 'opencli'));
+  }
+  if (process.env.npm_config_prefix) {
+    roots.push(join(process.env.npm_config_prefix, 'node_modules', '@jackwener', 'opencli'));
+  }
+  roots.push(
+    '/opt/homebrew/lib/node_modules/@jackwener/opencli',
+    '/usr/local/lib/node_modules/@jackwener/opencli',
+    join(home, '.opencli', 'runtime', 'node_modules', '@jackwener', 'opencli'),
+  );
+  const candidates: string[] = [];
+  for (const root of roots) {
+    candidates.push(join(root, 'dist', 'src', 'main.js'), join(root, 'dist', 'cli.js'));
+  }
   for (const p of candidates) {
     if (existsSync(p)) {
       _resolvedBin = p;
