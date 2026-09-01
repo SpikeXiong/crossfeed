@@ -49,11 +49,12 @@
 | 平台 | zip | 解压后启动 |
 | :--- | :--- | :--- |
 | Linux x64 | `crossfeed-v*-linux-x64.tar.gz` | `./start.sh` 或 `./install.sh` |
-| macOS x64（Intel） | `crossfeed-v*-macos-x64.zip` | `./start.sh` 或 `./install.sh` |
 | macOS ARM64（Apple Silicon） | `crossfeed-v*-macos-arm64.zip` | `./start.sh` 或 `./install.sh` |
 | Windows x64 | `crossfeed-v*-windows-x64.zip` | 双击 `start.bat`，或 `.\deploy\install.ps1` |
 
-每个 release 都由 GitHub Actions 跨平台独立构建（参见 [.github/workflows/release.yml](.github/workflows/release.yml)），未签名的 `.zip` / `.tar.gz` 直接下载即可。
+> 旧版 Intel Mac 用户请用源码 `npm install && npm run start`（OpenCLI 走本机 Chrome，不挑架构）。后续再考虑要不要加 Intel release。
+>
+> 每个 release 都由 GitHub Actions 跨平台独立构建（参见 [.github/workflows/release.yml](.github/workflows/release.yml)），未签名的 `.zip` / `.tar.gz` 直接下载即可。
 
 ## 快速开始
 
