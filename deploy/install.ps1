@@ -87,7 +87,14 @@ function Invoke-Npm {
     exit 1
   }
   # Splat a string[] so "@jackwener/opencli" stays one argument (not PS splat).
-  & $script:NpmCmd @NpmArgs
+  # PS 5.1 + ErrorAction Stop: native stderr becomes a terminating NativeCommandError.
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    & $script:NpmCmd @NpmArgs
+  } finally {
+    $ErrorActionPreference = $prev
+  }
   if ($FailLabel) { Assert-NativeExit $FailLabel }
 }
 
@@ -162,7 +169,9 @@ function Assert-Node {
     exit 1
   }
 
-  $ver = & $script:NodeBin -v
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try { $ver = & $script:NodeBin -v } finally { $ErrorActionPreference = $prev }
   $major = [int]($ver.TrimStart("v").Split(".")[0])
   if ($major -lt 21) {
     Write-Err "Crossfeed 需要 Node ≥ 21（当前 $ver）。"
@@ -224,6 +233,33 @@ function Sync-Adapters {
   Copy-Item -Recurse -Force (Join-Path $ClisBundle "*") $dst
 }
 
+function Get-NativeStdout {
+  param(
+    [Parameter(Mandatory = $true)][string]$File,
+    [string[]]$NativeArgs
+  )
+  # PS 5.1 + $ErrorActionPreference Stop treats native stderr as terminating.
+  # opencli list writes warnings (missing YAML adapters) to stderr but JSON to stdout.
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    $raw = & $File @NativeArgs 2>&1
+  } finally {
+    $ErrorActionPreference = $prev
+  }
+  $lines = New-Object System.Collections.Generic.List[string]
+  foreach ($item in @($raw)) {
+    if ($item -is [System.Management.Automation.ErrorRecord]) {
+      $msg = [string]$item
+      if ($msg) { Write-Warn $msg }
+    } else {
+      $s = [string]$item
+      if ($s) { [void]$lines.Add($s) }
+    }
+  }
+  return ($lines -join "`n")
+}
+
 function Verify-OpenCli {
   $bin = Resolve-OpenCliBin
   if (-not $bin) {
@@ -231,9 +267,10 @@ function Verify-OpenCli {
     exit 1
   }
   Write-Info "==> 探测 Adapter 列表"
-  $out = & $script:NodeBin $bin list -f json 2>$null
-  if (-not $out) {
-    Write-Err "opencli list 没有输出。看：$bin"
+  $out = Get-NativeStdout -File $script:NodeBin -NativeArgs @($bin, "list", "-f", "json")
+  $jsonish = $out -match '\[|\{'
+  if (-not $jsonish) {
+    Write-Err "opencli list 没有 JSON 输出。看：$bin"
     exit 1
   }
   Write-Ok "OpenCLI 就绪：$bin"
